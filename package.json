@@ -1,0 +1,32 @@
+{
+  "name": "huner-phase11-efg-detail-pass",
+  "private": true,
+  "version": "0.11.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "check:world": "node scripts/verify-world.mjs",
+    "check:assets": "node scripts/verify-assets.mjs",
+    "check": "npm run check:world && npm run check:assets && npm run check:bridge && npm run check:petri && npm run check:isolation && npm run check:expansion && npm run check:incubation && npm run check:network && npm run check:fruiting && npm run check:lookdev",
+    "check:bridge": "node scripts/verify-bridge.mjs",
+    "check:petri": "node scripts/verify-petri.mjs",
+    "check:isolation": "node scripts/verify-isolation.mjs",
+    "check:expansion": "node scripts/verify-expansion.mjs",
+    "check:incubation": "node scripts/verify-incubation.mjs",
+    "check:network": "node scripts/verify-network.mjs",
+    "check:fruiting": "node scripts/verify-fruiting.mjs",
+    "check:lookdev": "node scripts/verify-lookdev.mjs"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^9.0.0",
+    "gsap": "^3.12.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "three": "^0.175.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

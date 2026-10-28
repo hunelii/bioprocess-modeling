@@ -1,0 +1,50 @@
+{
+  "headlines": [
+    "Everything begins with life.",
+    "Give life the right conditions.",
+    "Growth becomes a network.",
+    "Precision begins with selection.",
+    "We cultivate potential.",
+    "We engineer the conditions.",
+    "Life builds its own architecture.",
+    "Life takes form.",
+    "Biology, engineered.",
+    "Making with life, for life."
+  ],
+  "subtitles": [
+    "One fungal spore, observed at the beginning of a larger biological story.",
+    "Controlled conditions introduce the culture to a real Petri dish.",
+    "The same culture initiates hyphal growth and forms a branching network.",
+    "A selected colony lineage is transferred to a new sterile culture.",
+    "Small cultures progress to larger controlled growth vessels.",
+    "A transparent incubator makes environmental conditions and growth observable.",
+    "A fixed incubation container reveals the fine architecture of mycelium.",
+    "Colonized substrate develops primordia and mushroom fruiting bodies.",
+    "Selected upstream mycelial culture feeds a separate fermentation pathway.",
+    "Observations, process models and feedback connect biology with engineering."
+  ],
+  "labels": [
+    "SPORE",
+    "PETRI",
+    "GERMINATION",
+    "ISOLATION",
+    "EXPANSION",
+    "INCUBATION",
+    "MYCELIUM",
+    "FRUITING",
+    "FERMENTATION",
+    "OPTIMIZATION"
+  ],
+  "frameNames": [
+    "01_THE_SPARK_OF_LIFE",
+    "02_PETRI_ARRIVAL",
+    "03_GERMINATION",
+    "04_ISOLATION",
+    "05_CULTURE_EXPANSION",
+    "06_CONTROLLED_INCUBATION",
+    "07_MYCELIAL_NETWORK",
+    "08_FRUITING_BODY",
+    "09_PRECISION_FERMENTATION",
+    "10_COMPUTATIONAL_OPTIMIZATION"
+  ]
+}

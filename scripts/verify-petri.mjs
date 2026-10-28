@@ -1,0 +1,14 @@
+import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';
+const src='src/data/camera.js', code=fs.readFileSync(src,'utf8');
+assert(code.includes("if(name.startsWith('B_GERMINATION_'))"));
+assert(code.includes("return .147 +"));
+const detail=fs.readFileSync('src/components/PetriLookdev.jsx','utf8');
+assert(detail.includes('PETRI_CENTER = [4.4, -.15, 1.285]'));
+const world=JSON.parse(fs.readFileSync('src/data/world.json'));
+assert.equal(world.cameraPath.length,1001);
+assert.equal(world.zones.length,8);
+assert.equal(world.cameraKeyframes.length,11);
+assert.equal(world.cameraKeyframes[1].progress,.11);
+assert.equal(world.cameraKeyframes[2].progress,.21);
+const digest=x=>crypto.createHash('sha256').update(fs.readFileSync(x)).digest('hex');
+console.log('Petri scene 02→03 source consistency passed; locked GLB SHA-256:',digest('public/assets/huner-living-factory.glb'));
