@@ -54,14 +54,15 @@ export default function App() {
   const registerInvalidate = useRef(null);
   const [uiProgress, setUiProgress] = useState(0);
   const [detail, setDetail] = useState(true);
-  const [canRender, setCanRender] = useState(false);
-  const [approached, setApproached] = useState(false);
+  const [canRender, setCanRender] = useState(() => webglSupport());
+  const [approached, setApproached] = useState(true);
   const [sceneReady, setSceneReady] = useState(false);
   const [renderFailure, setRenderFailure] = useState('');
   const [staticChoice, setStaticChoice] = useState(false);
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   const small = useMediaQuery('(max-width: 760px)');
-  const readyToAttempt3D = canRender && !small && !reduced && !renderFailure && !staticChoice;
+  // Enable the optimized 3D experience across all devices (desktop, laptop, tablet, and mobile)
+  const readyToAttempt3D = canRender && !renderFailure && !staticChoice;
   const using3D = readyToAttempt3D && approached;
   const posterMode = !using3D || !sceneReady;
   // Visual-only fallback: transition between Scene 01 and 02 without a hard poster swap.
@@ -99,7 +100,7 @@ export default function App() {
       anticipatePin: 1,
       onUpdate: self => {
         const p = clamp01(self.progress);
-        progressRef.current = reduced ? (p > .982 ? 1 : STAGES[stageAt(p)].progress) : p;
+        progressRef.current = p;
         registerInvalidate.current?.();
         // Throttle React overlays while preserving exact GPU camera progression.
         setUiProgress(old => Math.round(old * 120) === Math.round(p * 120) ? old : p);
@@ -156,7 +157,7 @@ export default function App() {
         <img className="poster" src={poster(0, false)} loading="eager" decoding="async" alt="Illustrative fungal spore observation station" style={{opacity:posterMode ? 1-openingBlend : 0, objectPosition: portraitFocus}} />
         <img className="poster" src={poster(1, false)} loading="eager" decoding="async" alt="Petri cultivation station" style={{opacity:posterMode ? openingBlend : 0, objectPosition: portraitFocus}} />
       </> : <img className="poster" src={poster(stageIndex, coda)} loading="eager" decoding="async" alt={`Illustration of ${coda ? 'the complete living biofoundry' : copy.labels[stageIndex].toLowerCase()}`} style={{opacity:posterMode?1:0, objectPosition: portraitFocus}} />}
-      {using3D && <div className="scene-shell" style={{ opacity: sceneReady ? 1 : 0 }} aria-hidden="true"><SceneBoundary onFailure={onFailure}><FactoryScene progressRef={progressRef} registerInvalidate={registerInvalidate} detail={detail} onReady={onReady} onFailure={onFailure}/></SceneBoundary></div>}
+      {using3D && <div className="scene-shell" style={{ opacity: sceneReady ? 1 : 0 }} aria-hidden="true"><SceneBoundary onFailure={onFailure}><FactoryScene progressRef={progressRef} registerInvalidate={registerInvalidate} detail={!small && detail} onReady={onReady} onFailure={onFailure}/></SceneBoundary></div>}
       {posterMode && openingBridge && <div style={{position:'absolute',inset:0,opacity:1-ease(.074,.113,uiProgress),pointerEvents:'none'}}><Scene01Fallback progress={uiProgress} /></div>}
       <div className="veil" aria-hidden="true"/><IsolationOverlay progress={uiProgress}/><ExpansionOverlay progress={uiProgress}/><IncubationOverlay progress={uiProgress}/><LivingNetworkOverlay progress={uiProgress}/><FruitingOverlay progress={uiProgress}/>
       <div className="overlay-top"><div className="identity">HUNER BIOFOUNDRY<span>MAKING WITH LIFE, FOR LIFE.</span></div><span className="status">01—10 / LIVING FACTORY</span></div>
@@ -166,7 +167,7 @@ export default function App() {
       <footer className="story-footer"><div className="eyebrow-bar"><span>ONE ORGANISM / TWO SCIENTIFIC PATHWAYS</span><span>{Math.round(uiProgress * 100)}%</span></div>
         <nav className="stage-nav" aria-label="Ten scientific stages">{STAGES.map((s, i) => <button type="button" key={s.id} className={!coda && stageIndex === i ? 'active' : ''} aria-label={`Go to ${copy.labels[i].toLowerCase()} stage`} aria-current={!coda && stageIndex === i ? 'step' : undefined} onClick={() => seek(s.progress)}>{copy.labels[i]}</button>)}</nav>
         <div className="track" role="progressbar" aria-label="Factory journey progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(uiProgress * 100)}><div style={{transform: `scaleX(${uiProgress})`}} /></div>
-        <div className="footnote"><button type="button" onClick={() => seek(0)}>↶ RESTART</button><span>SCROLL VERTICALLY · ARROW KEYS TO CHANGE CHAPTER</span>{readyToAttempt3D && <button type="button" aria-pressed={staticChoice} onClick={() => { setStaticChoice(true); setSceneReady(false); }}>STATIC VIEW</button>}{canRender && !reduced && !small && staticChoice && !renderFailure && <button type="button" onClick={() => { setStaticChoice(false); setSceneReady(false); }}>ENABLE 3D</button>}{using3D && sceneReady && <button type="button" aria-pressed={!detail} onClick={() => setDetail(v => !v)}>{detail ? 'FULL DETAIL' : 'SIMPLIFIED DETAIL'}</button>}</div>
+        <div className="footnote"><button type="button" onClick={() => seek(0)}>↶ RESTART</button><span>SCROLL VERTICALLY · ARROW KEYS TO CHANGE CHAPTER</span>{readyToAttempt3D && <button type="button" aria-pressed={staticChoice} onClick={() => { setStaticChoice(true); setSceneReady(false); }}>STATIC VIEW</button>}{canRender && staticChoice && !renderFailure && <button type="button" onClick={() => { setStaticChoice(false); setSceneReady(false); }}>ENABLE 3D</button>}{using3D && sceneReady && <button type="button" aria-pressed={!detail} onClick={() => setDetail(v => !v)}>{detail ? 'FULL DETAIL' : 'SIMPLIFIED DETAIL'}</button>}</div>
       </footer>
       {using3D && !sceneReady && <div className="load-status" role="status">LOADING 3D WORLD…<span>Illustrations remain available while the model loads.</span></div>}
     </div></section>
