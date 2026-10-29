@@ -13,10 +13,11 @@ import { FruitingAtmosphere, updateFruitingDevelopment } from './FruitingDevelop
 import { LookdevLocalLights, DetailedOysterMushrooms, upgradeFactoryMaterials } from './CinematicLookdev.jsx';
 import EFGDetailPass from './EFGDetailPass.jsx';
 import HighFidelityFactoryPass from './HighFidelityFactoryPass.jsx';
+import { mergeGeometriesFast } from '../data/gpuOptimize.js';
 
-// Use the original textured GLB so all lab benches, worktops, and consoles have their original textured surfaces,
-// while pre-initializing all GPU textures once at startup so zero textures upload mid-scroll.
-const WORLD_FILE = `${import.meta.env.BASE_URL}assets/huner-living-factory-textured.glb`;
+// Use the lightweight untextured GLB (3.42 MB, 0 PNG textures) and batch all 480 static meshes by material
+// into ~14 GPU draw calls at startup while preserving original bench/table colors via upgradeFactoryMaterials.
+const WORLD_FILE = `${import.meta.env.BASE_URL}assets/huner-living-factory.glb`;
 const UP = new THREE.Vector3(0, 0, 1);
 const LOOK_AT = new THREE.Vector3();
 const CAMERA_CONFIG = { position: [1.18, -1.55, 1.72], fov: 32, near: 0.015, far: 160, up: [0, 0, 1] };
@@ -24,25 +25,24 @@ const GL_CONFIG = { alpha: false, antialias: true, powerPreference: 'high-perfor
 
 function World({ progressRef, registerInvalidate, detail, onReady }) {
   const { scene } = useLoader(GLTFLoader, WORLD_FILE);
+  const rootScene = useThree(state => state.scene);
   const camera = useThree(state => state.camera);
   const gl = useThree(state => state.gl);
   const invalidate = useThree(state => state.invalidate);
   const lastProgress = useRef(-1);
   const lastDetail = useRef(null);
 
-  const world = useMemo(() => {
+  const { world, actors } = useMemo(() => {
     const cloned = scene.clone(true);
     upgradeFactoryMaterials(cloned);
-    return cloned;
-  }, [scene]);
-  useMemo(() => applyPetriMaterials(world), [world]);
+    applyPetriMaterials(cloned);
+    cloned.updateMatrixWorld(true);
 
-  // Pre-filter the 1,214 GLB meshes once at startup:
-  // Freeze matrices on static architecture, permanently hide legacy blockout biology & opaque fermenter/screen blockers,
-  // and keep only the truly dynamic meshes in `actors` so useFrame takes < 0.02ms.
-  const actors = useMemo(() => {
     const dynamicEntries = [];
-    world.traverse(object => {
+    const staticByMaterial = new Map();
+    const toRemove = [];
+
+    cloned.traverse(object => {
       if (!object.isMesh) return;
       const name = object.name || '';
       object.frustumCulled = true;
@@ -68,8 +68,7 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
 
       if (lowPolySpore || badLegacyIsolation || isHypha || legacyMacro || legacyFruit || legacyExpansion || legacyIncubation || legacyFerment || legacyZoneHScreen) {
         object.visible = false;
-        object.matrixAutoUpdate = false;
-        object.updateMatrix();
+        toRemove.push(object);
         return;
       }
 
@@ -78,34 +77,59 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
       if (start > 0 || isContainer) {
         dynamicEntries.push({ object, start });
       } else {
-        object.visible = true;
-        object.matrixAutoUpdate = false;
-        object.updateMatrix();
-      }
-    });
-    world.updateMatrixWorld(true);
-    return dynamicEntries;
-  }, [world]);
-
-  useEffect(() => {
-    // Pre-upload all unique textures to GPU VRAM once before scrolling starts so mid-scroll texture stalls never occur
-    const uploaded = new Set();
-    world.traverse(obj => {
-      if (!obj.isMesh || !obj.visible || !obj.material) return;
-      const mat = obj.material;
-      for (const key of ['map', 'normalMap', 'metalnessMap', 'roughnessMap', 'emissiveMap']) {
-        const tex = mat[key];
-        if (tex && !uploaded.has(tex)) {
-          uploaded.add(tex);
-          gl.initTexture(tex);
+        // Batch all 480 static GLB meshes by material into ~14 combined meshes (cutting ~466 draw calls & ~1,200 scene nodes!)
+        const mat = object.material;
+        if (mat && object.geometry) {
+          const g = object.geometry.index ? object.geometry.toNonIndexed() : object.geometry.clone();
+          if (!g.attributes.normal) g.computeVertexNormals();
+          g.applyMatrix4(object.matrixWorld);
+          let bucket = staticByMaterial.get(mat);
+          if (!bucket) {
+            bucket = [];
+            staticByMaterial.set(mat, bucket);
+          }
+          bucket.push(g);
+          toRemove.push(object);
         }
       }
     });
 
+    for (const obj of toRemove) {
+      if (obj.parent) obj.parent.remove(obj);
+    }
+
+    for (const [mat, geos] of staticByMaterial.entries()) {
+      const mergedGeo = mergeGeometriesFast(geos);
+      const batchedMesh = new THREE.Mesh(mergedGeo, mat);
+      batchedMesh.matrixAutoUpdate = false;
+      batchedMesh.frustumCulled = false;
+      cloned.add(batchedMesh);
+    }
+
+    cloned.updateMatrixWorld(true);
+    return { world: cloned, actors: dynamicEntries };
+  }, [scene]);
+
+  useEffect(() => {
     camera.up.copy(UP);
     camera.near = 0.015;
     camera.far = 160;
     camera.updateProjectionMatrix();
+
+    // Pre-compile every shader & upload every VBO to GPU once at startup (including initially-hidden station groups)
+    // so scrolling across station boundaries never triggers a first-time shader compile hitch!
+    const hiddenObjects = [];
+    rootScene.traverse(obj => {
+      if (!obj.visible) {
+        hiddenObjects.push(obj);
+        obj.visible = true;
+      }
+    });
+    gl.compile(rootScene, camera);
+    for (const obj of hiddenObjects) {
+      obj.visible = false;
+    }
+
     lastProgress.current = -1;
     registerInvalidate.current = invalidate;
     invalidate();
@@ -113,7 +137,7 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
     return () => {
       if (registerInvalidate.current === invalidate) registerInvalidate.current = null;
     };
-  }, [world, gl, camera, invalidate, registerInvalidate, onReady]);
+  }, [world, rootScene, gl, camera, invalidate, registerInvalidate, onReady]);
 
   useEffect(() => {
     lastDetail.current = null;
@@ -186,6 +210,8 @@ function CinematicLightRig({ progressRef }) {
   const ambient = useRef();
   const key = useRef();
   const rim = useRef();
+  const stationKey = useRef();
+  const stationFill = useRef();
   const camera = useThree(state => state.camera);
   useEffect(() => {
     camera.up.copy(UP);
@@ -203,6 +229,72 @@ function CinematicLightRig({ progressRef }) {
     if (ambient.current) ambient.current.intensity = .34 + .22 * f;
     if (key.current) key.current.intensity = .58 + .55 * f;
     if (rim.current) rim.current.intensity = .28 + .32 * f;
+
+    // 2 Permanently-Visible Follower Point Lights (NUM_POINT_LIGHTS is permanently 2 -> ZERO shader recompilations ever!)
+    if (stationKey.current && stationFill.current) {
+      if (p < 0.105) {
+        // Scene 01: Spore Birth Key & Warm Rim
+        stationKey.current.position.set(0.78, -0.55, 2.85);
+        stationKey.current.color.setHex(0xa8f0c0);
+        stationKey.current.intensity = 2.2;
+        stationKey.current.distance = 4.5;
+        stationFill.current.position.set(1.45, -0.35, 1.15);
+        stationFill.current.color.setHex(0xffe5a8);
+        stationFill.current.intensity = 0.95;
+        stationFill.current.distance = 2.8;
+      } else if (p < 0.235) {
+        // Scene 02-03: Petri Dish Key
+        stationKey.current.position.set(4.15, -0.95, 2.75);
+        stationKey.current.color.setHex(0xfff4e0);
+        stationKey.current.intensity = 1.35;
+        stationKey.current.distance = 4.8;
+        stationFill.current.position.set(4.65, 0.35, 1.95);
+        stationFill.current.color.setHex(0xc8f0d8);
+        stationFill.current.intensity = 0.55;
+        stationFill.current.distance = 3.5;
+      } else if (p < 0.415) {
+        // Scene 04-05: Isolation Selection & Culture Expansion
+        const xFollow = 7.45 + Math.max(0, (p - 0.33) / 0.08) * 3.5;
+        stationKey.current.position.set(xFollow, -0.65, 2.45);
+        stationKey.current.color.setHex(0xfff5e2);
+        stationKey.current.intensity = 1.25;
+        stationKey.current.distance = 5.2;
+        stationFill.current.position.set(xFollow + 0.8, 0.55, 1.85);
+        stationFill.current.color.setHex(0xb8ebd0);
+        stationFill.current.intensity = 0.65;
+        stationFill.current.distance = 4.5;
+      } else if (p < 0.675) {
+        // Scene 06-07: Controlled Incubation & Bottom Oxygen Sparger Glow
+        stationKey.current.position.set(15.49, -1.25, 2.78);
+        stationKey.current.color.setHex(0xfff3de);
+        stationKey.current.intensity = 1.55;
+        stationKey.current.distance = 7.5;
+        stationFill.current.position.set(15.32, -0.35, 1.35);
+        stationFill.current.color.setHex(0x8ef2c0);
+        stationFill.current.intensity = 1.35;
+        stationFill.current.distance = 5.5;
+      } else if (p < 0.815) {
+        // Scene 08: Zone F Fruiting Body Warm Botanical Key & Under-Gill Fill
+        stationKey.current.position.set(19.85, -1.95, 3.35);
+        stationKey.current.color.setHex(0xfff2dc);
+        stationKey.current.intensity = 2.15;
+        stationKey.current.distance = 8.5;
+        stationFill.current.position.set(20.05, -1.15, 1.55);
+        stationFill.current.color.setHex(0xffe6c4);
+        stationFill.current.intensity = 1.35;
+        stationFill.current.distance = 6.5;
+      } else {
+        // Scene 09-10: Zone G Fermenter Core Glow & Zone H Chalkboard/Desk Study Lamp
+        stationKey.current.position.set(25.0, -0.85, 2.45);
+        stationKey.current.color.setHex(0xffdfa8);
+        stationKey.current.intensity = 2.10;
+        stationKey.current.distance = 6.5;
+        stationFill.current.position.set(30.10, -0.65, 2.85);
+        stationFill.current.color.setHex(0xfff3dc);
+        stationFill.current.intensity = 1.55;
+        stationFill.current.distance = 7.5;
+      }
+    }
   });
   return (
     <>
@@ -210,6 +302,8 @@ function CinematicLightRig({ progressRef }) {
       <hemisphereLight args={['#dce6de', '#141f19', 0.38]} />
       <directionalLight ref={key} position={[8, -11, 16]} intensity={.65} color="#f7ecda" />
       <directionalLight ref={rim} position={[26, 5, 11]} intensity={.32} color="#9bc4ab" />
+      <pointLight ref={stationKey} position={[0.78, -0.55, 2.85]} color="#a8f0c0" intensity={2.2} distance={4.5} decay={2} />
+      <pointLight ref={stationFill} position={[1.45, -0.35, 1.15]} color="#ffe5a8" intensity={0.95} distance={2.8} decay={2} />
     </>
   );
 }
@@ -230,7 +324,7 @@ const FactoryScene = React.memo(function FactoryScene({ progressRef, registerInv
       aria-label="Interactive 3D visualization of the living biofoundry"
       fallback={<span className="sr-only">3D graphics unavailable. The illustrated experience remains accessible.</span>}
       frameloop="demand"
-      dpr={detail ? 1.25 : 1}
+      dpr={1}
       camera={CAMERA_CONFIG}
       gl={GL_CONFIG}
       onCreated={onCreated}

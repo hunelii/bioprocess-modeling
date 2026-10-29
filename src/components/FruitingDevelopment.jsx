@@ -50,9 +50,6 @@ export function updateFruitingDevelopment(actors,p){
 
 export function FruitingAtmosphere({ progressRef }) {
   const groupRef = useRef();
-  const key = useRef(null);
-  const fillRef = useRef(null);
-  const rimRef = useRef(null);
 
   const steelMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#8f9c95', metalness: 0.74, roughness: 0.32, envMapIntensity: 0.75
@@ -61,15 +58,15 @@ export function FruitingAtmosphere({ progressRef }) {
   const growLightDiffuserMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#fff3de',
     emissive: '#ffdfad',
-    emissiveIntensity: 0.55,
+    emissiveIntensity: 0.65,
     roughness: 0.25
   }), []);
 
   const batched = useMemo(() => {
     const steelGeos = [
-      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 2.72, 14), [18.30, -1.25, 1.88], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 2.72, 14), [21.70, -1.25, 1.88], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 3.45, 14), [20.0, -1.25, 3.22], [0, 0, Math.PI / 2])
+      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 2.72, 12), [18.30, -1.25, 1.88], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 2.72, 12), [21.70, -1.25, 1.88], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 3.45, 12), [20.0, -1.25, 3.22], [0, 0, Math.PI / 2])
     ];
     const diffuserGeos = [];
     // Overhead shelf grow-light housings above each of the 3 fruiting tiers
@@ -85,34 +82,11 @@ export function FruitingAtmosphere({ progressRef }) {
 
   useFrame(() => {
     const p = progressRef.current;
-    const active = p >= 0.64;
-    if (groupRef.current) groupRef.current.visible = active;
-    const lightActive = p >= 0.66 && p <= 0.84;
-    const a = lightActive ? fruitEase(.680, .728, p) * (1 - 0.35 * fruitEase(.790, .835, p)) : 0;
-
-    if (key.current) {
-      key.current.visible = lightActive;
-      if (lightActive) key.current.intensity = 0.55 + 1.75 * a;
-    }
-    if (fillRef.current) {
-      fillRef.current.visible = lightActive;
-      if (lightActive) fillRef.current.intensity = 0.35 + 1.15 * a;
-    }
-    if (rimRef.current) {
-      rimRef.current.visible = lightActive;
-      if (lightActive) rimRef.current.intensity = 0.30 + 1.05 * a;
-    }
+    if (groupRef.current) groupRef.current.visible = p >= 0.64;
   });
 
   return (
     <group ref={groupRef} name="ZONE_F_CHAMBER_ATMOSPHERE_AND_LIGHTING" visible={false}>
-      {/* 1. Warm Botanical Key Light sculpting the upper oyster mushroom caps */}
-      <pointLight ref={key} position={[19.85, -1.95, 3.35]} color="#fff2dc" intensity={0.55} distance={7.5} decay={2} />
-      {/* 2. Warm Lower-Shelf Fill Light revealing the decurrent radial gills underneath the caps */}
-      <pointLight ref={fillRef} position={[20.05, -1.25, 1.52]} color="#ffe6c4" intensity={0.35} distance={5.8} decay={2} />
-      {/* 3. Cool Botanical Rim Backlight separating the translucent fan margins from the rear rack */}
-      <pointLight ref={rimRef} position={[20.0, 1.28, 2.45]} color="#b4f0cf" intensity={0.30} distance={6.2} decay={2} />
-
       <mesh geometry={batched.steelGeo} material={steelMat} />
       <mesh geometry={batched.diffuserGeo} material={growLightDiffuserMat} />
     </group>

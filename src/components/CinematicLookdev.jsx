@@ -14,7 +14,7 @@ const capColors = ['#c7bbb0', '#d4c9bc', '#b8aba0', '#ddd3c7', '#c2b5a8'];
 
 // True spathulate / kidney-fan Pleurotus ostreatus cap radiating from lateral stem attachment at (0,0,0)
 function createOysterShellCapGeometry() {
-  const segA = 36, segR = 14;
+  const segA = 18, segR = 8;
   const vertices = [], faces = [];
   // Rear attachment depression at (0, 0, 0)
   vertices.push(0, 0, 0.004);
@@ -71,7 +71,7 @@ function createOysterShellCapGeometry() {
 // Decurrent radial lamellae (gills) flowing from the oyster cap margin down into the lateral stem
 function createOysterGillsGeometry() {
   const pos = [], indices = [];
-  const numGills = 28, steps = 8;
+  const numGills = 14, steps = 4;
 
   for (let k = 0; k < numGills; k++) {
     const s = (k + 0.5) / numGills;
@@ -157,35 +157,25 @@ const bouquetCapGeo = mergeGeometriesFast(
   SHELF_SPECS.map(s => transformGeo(baseCap, s.pos, s.rot, s.scale))
 );
 
-const bouquetGillGeo = mergeGeometriesFast(
-  SHELF_SPECS.map(s => transformGeo(baseGills, s.pos, s.rot, s.scale))
-);
-
-// Merge colonized mycelial cushion + 6 curved lateral stems + 4 basal primordia pinheads
+// Merge colonized mycelial cushion + 6 curved lateral stems + 6 decurrent radial gill sets + 3 basal primordia pinheads
+// into a single geometry per cluster so each cluster takes only 2 draw calls instead of 3!
 const bouquetStemGeo = mergeGeometriesFast([
   transformGeo(new THREE.DodecahedronGeometry(0.085, 1), [0, -0.01, -0.008], [0, 0, 0], [1.25, 0.95, 0.45]),
   ...SHELF_SPECS.map(s => createOysterStemGeometry(s.pos[0], s.pos[1], s.pos[2], s.stemR)),
+  ...SHELF_SPECS.map(s => transformGeo(baseGills, s.pos, s.rot, s.scale)),
   // Young primordia pinheads around the base
-  transformGeo(new THREE.CapsuleGeometry(0.011, 0.028, 4, 8), [0.025, -0.045, 0.022], [0.35, 0, -0.2]),
-  transformGeo(new THREE.CapsuleGeometry(0.009, 0.022, 4, 8), [-0.032, -0.042, 0.018], [0.38, 0, 0.25]),
-  transformGeo(new THREE.CapsuleGeometry(0.008, 0.018, 4, 8), [0.0, -0.052, 0.014], [0.42, 0, 0.05])
+  transformGeo(new THREE.CapsuleGeometry(0.011, 0.028, 3, 6), [0.025, -0.045, 0.022], [0.35, 0, -0.2]),
+  transformGeo(new THREE.CapsuleGeometry(0.009, 0.022, 3, 6), [-0.032, -0.042, 0.018], [0.38, 0, 0.25]),
+  transformGeo(new THREE.CapsuleGeometry(0.008, 0.018, 3, 6), [0.0, -0.052, 0.014], [0.42, 0, 0.05])
 ]);
 
-const gillMaterial = new THREE.MeshStandardMaterial({
-  color: '#ede3d4',
-  emissive: '#291e14',
-  emissiveIntensity: 0.10,
-  roughness: 0.64,
+const stemMaterial = new THREE.MeshStandardMaterial({
+  color: '#f2ece0',
+  emissive: '#261c13',
+  emissiveIntensity: 0.09,
+  roughness: 0.66,
   metalness: 0.02,
   side: THREE.DoubleSide
-});
-
-const stemMaterial = new THREE.MeshStandardMaterial({
-  color: '#f4eee2',
-  emissive: '#241b12',
-  emissiveIntensity: 0.08,
-  roughness: 0.68,
-  metalness: 0.02
 });
 
 export function upgradeFactoryMaterials(world) {
@@ -237,11 +227,28 @@ export function upgradeFactoryMaterials(world) {
     roughness: 0.92,
     metalness: 0.04
   });
+  // Exact sampled colors & satin finishes from the original bench worktops & plinths (0 PNG texture overhead!)
+  const sharedWorktopSteelMat = new THREE.MeshStandardMaterial({
+    color: '#b5bfae',
+    roughness: 0.34,
+    metalness: 0.68,
+    envMapIntensity: 0.82
+  });
+  const sharedBenchPlinthMat = new THREE.MeshStandardMaterial({
+    color: '#d5d0b5',
+    roughness: 0.58,
+    metalness: 0.08,
+    envMapIntensity: 0.55
+  });
 
   world.traverse(object => {
     if (!object.isMesh) return;
     const name = object.name || '';
-    if (name.startsWith('F_substrate_tray_')) {
+    if (/^(B_worktop|C_counter|E_cabinet_top|H_console_top)$/.test(name)) {
+      object.material = sharedWorktopSteelMat;
+    } else if (/^(B_bench_plinth|C_sterile_bench|D_growth_plinth|H_console)$/.test(name)) {
+      object.material = sharedBenchPlinthMat;
+    } else if (name.startsWith('F_substrate_tray_')) {
       object.material = sharedTrayMat;
     } else if (name.startsWith('F_') && /(frame|support|rail|enclosure|post|roof)/i.test(name)) {
       object.material = sharedFrameMat;
@@ -271,7 +278,7 @@ export function DetailedOysterMushrooms({ progressRef }) {
   const rootGroupRef = useRef();
   const groups = useRef([]);
   const capRefs = useRef([]);
-  const gillRefs = useRef([]);
+  const lastP = useRef(-1);
   const items = useMemo(() => {
     const result = [];
     let idx = 0;
@@ -308,8 +315,9 @@ export function DetailedOysterMushrooms({ progressRef }) {
     const active = p >= .695;
     if (rootGroupRef.current) rootGroupRef.current.visible = active;
     if (!active) return;
-
-    const showGills = p <= 0.81;
+    // Skip redundant updates when progress hasn't changed or when mushrooms are already 100% mature (p > 0.785)
+    if (Math.abs(p - lastP.current) < 0.0004 || (p > 0.785 && lastP.current > 0.785)) return;
+    lastP.current = p;
 
     items.forEach((item, i) => {
       const actor = groups.current[i];
@@ -334,13 +342,6 @@ export function DetailedOysterMushrooms({ progressRef }) {
         const capExpand = Math.max(0.12, 0.15 * prim + 0.85 * Math.pow(unfurl, 0.85));
         capRefs.current[i].scale.set(capExpand, capExpand, 0.45 + 0.55 * unfurl);
       }
-      if (gillRefs.current[i]) {
-        gillRefs.current[i].visible = showGills && unfurl > 0.15;
-        if (gillRefs.current[i].visible) {
-          const capExpand = Math.max(0.12, 0.15 * prim + 0.85 * Math.pow(unfurl, 0.85));
-          gillRefs.current[i].scale.set(capExpand, capExpand, 0.45 + 0.55 * unfurl);
-        }
-      }
     });
   });
 
@@ -355,12 +356,10 @@ export function DetailedOysterMushrooms({ progressRef }) {
             position={[item.x, item.y, item.z]}
             rotation={[0, 0, item.rotZ]}
           >
-            {/* Colonized Mycelial Cushion, Primordia Pinheads & 6 Flared Lateral Stems */}
+            {/* Colonized Mycelial Cushion, Primordia Pinheads, 6 Flared Lateral Stems & Decurrent Radial Gills */}
             <mesh geometry={bouquetStemGeo} material={stemMaterial} />
             {/* 6 Overlapping Spathulate Oyster-Shell Caps that Unfurl Outward */}
             <mesh ref={el => capRefs.current[i] = el} geometry={bouquetCapGeo} material={matMain} />
-            {/* Decurrent Radial Gills with Automatic Distance LOD */}
-            <mesh ref={el => gillRefs.current[i] = el} geometry={bouquetGillGeo} material={gillMaterial} />
           </group>
         );
       })}
@@ -369,10 +368,5 @@ export function DetailedOysterMushrooms({ progressRef }) {
 }
 
 export function LookdevLocalLights() {
-  return (
-    <>
-      <pointLight position={[20.0, -2.4, 3.8]} color="#fff5e4" intensity={0.85} distance={11} decay={2} />
-      <pointLight position={[25.0, -2.5, 4.2]} color="#ffeacc" intensity={0.75} distance={11} decay={2} />
-    </>
-  );
+  return null;
 }

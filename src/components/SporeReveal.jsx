@@ -57,12 +57,12 @@ function createMergedInternalCytoplasmWeb() {
 function createBokehParticles() {
   let seed = 23843;
   const rand = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
-  const count = 240;
+  const count = 120;
   const positions = new Float32Array(count * 3);
   const scales = new Float32Array(count);
   const phases = new Float32Array(count);
   for (let i = 0; i < count; i++) {
-    const inBeam = i < 175;
+    const inBeam = i < 90;
     const z = 0.55 + rand() * 2.65;
     const beamShiftX = (z - 1.37) * -0.22;
     const spread = inBeam ? 0.52 : 1.35;
@@ -319,9 +319,10 @@ export default function SporeReveal({ progressRef }) {
   const specimenGroup = useRef();
   const halo = useRef();
   const particles = useRef();
+  const lastP = useRef(-1);
 
-  const geometry = useMemo(() => createHighDetailSporeGeometry(64, 48), []);
-  const lightSporeGeo = useMemo(() => createHighDetailSporeGeometry(28, 20), []);
+  const geometry = useMemo(() => createHighDetailSporeGeometry(36, 28), []);
+  const lightSporeGeo = useMemo(() => createHighDetailSporeGeometry(20, 14), []);
   const mergedOrganellesGeo = useMemo(() => {
     const innerShell = transformGeo(lightSporeGeo, [0, 0, 0], [0, 0, 0], [0.88, 0.88, 0.88]);
     const nuc = transformGeo(new THREE.IcosahedronGeometry(1, 2), [0.12, 0.05, 0.15], [0, 0, 0], [0.26, 0.28, 0.24]);
@@ -382,11 +383,15 @@ export default function SporeReveal({ progressRef }) {
   useFrame(() => {
     if (!group.current) return;
     const p = clamp01(progressRef.current);
-    const t = beat(p);
     const inOpening = p < 0.118;
     const inCoda = p > 0.92;
-    group.current.visible = inOpening || inCoda;
-    if (!group.current.visible) return;
+    const vis = inOpening || inCoda;
+    group.current.visible = vis;
+    if (!vis) return;
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
+
+    const t = beat(p);
 
     const reveal = inCoda
       ? smooth(0.92, 0.96, p)
@@ -453,10 +458,6 @@ export default function SporeReveal({ progressRef }) {
             <bufferAttribute attach="attributes-aPhase" args={[bokeh.phases, 1]} />
           </bufferGeometry>
         </points>
-
-        {/* Dedicated Birth-of-Cell Microscopy Key & Warm Rim Lights */}
-        <spotLight position={[0.78, -0.55, 3.25]} target-position={[1.2, -0.03, 1.0]} color="#a8f0c0" intensity={2.4} angle={0.44} penumbra={0.95} distance={4.2} />
-        <pointLight position={[1.45, -0.35, 1.15]} color="#ffe5a8" intensity={0.95} distance={2.4} decay={2} />
       </group>
     </>
   );

@@ -213,9 +213,9 @@ export function applyPetriMaterials(world) {
 }
 
 export function PetriLight({ progressRef }) {
-  const spot = useRef();
   const colonyGroupRef = useRef();
   const rhizomorphMeshRef = useRef();
+  const lastP = useRef(-1);
 
   const colonyMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
@@ -229,7 +229,7 @@ export function PetriLight({ progressRef }) {
     side: THREE.DoubleSide
   }), []);
 
-  const rhizomorphGeo = useMemo(() => buildTapered3DRhizomorphs(0.038, 48, 44015), []);
+  const rhizomorphGeo = useMemo(() => buildTapered3DRhizomorphs(0.038, 36, 44015), []);
   const rhizomorphMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#f8f6ed',
     roughness: 0.72,
@@ -247,26 +247,22 @@ export function PetriLight({ progressRef }) {
   const batchedDish = useMemo(() => {
     const [cx, cy, cz] = PETRI_CENTER;
     const glassGeo = mergeGeometriesFast([
-      transformGeo(new THREE.CylinderGeometry(0.0465, 0.046, 0.014, 36, 1, true), [cx, cy, cz + 0.005], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.TorusGeometry(0.0462, 0.0012, 8, 36), [cx, cy, cz + 0.012])
+      transformGeo(new THREE.CylinderGeometry(0.0465, 0.046, 0.014, 32, 1, true), [cx, cy, cz + 0.005], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.TorusGeometry(0.0462, 0.0012, 6, 32), [cx, cy, cz + 0.012])
     ]);
-    const steelGeo = transformGeo(new THREE.CylinderGeometry(0.058, 0.064, 0.016, 28), [cx, cy, cz - 0.018], [Math.PI / 2, 0, 0]);
+    const steelGeo = transformGeo(new THREE.CylinderGeometry(0.058, 0.064, 0.016, 24), [cx, cy, cz - 0.018], [Math.PI / 2, 0, 0]);
     return { glassGeo, steelGeo };
   }, []);
 
   useFrame(() => {
     const p = progressRef.current;
-    const a = smooth(.095, .122, p) * (1 - smooth(.225, .265, p));
-    if (spot.current) {
-      spot.current.visible = a > 0.01;
-      if (spot.current.visible) spot.current.intensity = 0.25 + 1.15 * a;
-    }
-
     // Continuous radial colony expansion from p=0.138 to p=0.208
     const growth = p > 0.92 ? 1.0 : smooth(0.138, 0.208, p);
     const vis = growth > 0.008 && (p <= 0.32 || p > 0.90);
     if (colonyGroupRef.current) colonyGroupRef.current.visible = vis;
     if (!vis) return;
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
 
     colonyMat.uniforms.uGrowth.value = growth;
     if (rhizomorphMeshRef.current) {
@@ -277,25 +273,13 @@ export function PetriLight({ progressRef }) {
 
   return (
     <>
-      <spotLight
-        ref={spot}
-        position={[4.08, -0.98, 3.12]}
-        color="#fff4e0"
-        target-position={[4.4, -0.15, 1.285]}
-        intensity={0.2}
-        angle={0.54}
-        penumbra={0.85}
-        distance={4.8}
-        decay={2}
-      />
-
       <mesh geometry={batchedDish.glassGeo} material={glassRimMat} />
       <mesh geometry={batchedDish.steelGeo} material={steelMat} />
 
       {/* Realistic Radial Rhizomorphic Mycelium Colony centered at [4.40, -0.15, 1.2890] on B_Petri_1 */}
       <group ref={colonyGroupRef} position={[4.40, -0.15, 1.2890]} visible={false}>
         <mesh scale={[0.041, 0.041, 1]} material={colonyMat}>
-          <circleGeometry args={[1, 40]} />
+          <circleGeometry args={[1, 32]} />
         </mesh>
         <mesh ref={rhizomorphMeshRef} geometry={rhizomorphGeo} material={rhizomorphMat} />
       </group>

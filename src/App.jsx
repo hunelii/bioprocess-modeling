@@ -52,6 +52,8 @@ export default function App() {
   const triggerRef = useRef(null);
   const progressRef = useRef(0);
   const registerInvalidate = useRef(null);
+  const trackBarRef = useRef(null);
+  const percentTextRef = useRef(null);
   const [uiProgress, setUiProgress] = useState(0);
   const [detail, setDetail] = useState(true);
   const [canRender, setCanRender] = useState(() => webglSupport());
@@ -102,8 +104,11 @@ export default function App() {
         const p = clamp01(self.progress);
         progressRef.current = p;
         registerInvalidate.current?.();
-        // Throttle React overlays while preserving exact GPU camera progression.
-        setUiProgress(old => Math.round(old * 120) === Math.round(p * 120) ? old : p);
+        // Update 60fps progress bar & percentage directly via DOM refs to avoid React re-render overhead
+        if (trackBarRef.current) trackBarRef.current.style.transform = `scaleX(${p})`;
+        if (percentTextRef.current) percentTextRef.current.textContent = `${Math.round(p * 100)}%`;
+        // Throttle React state updates to ~32 steps across the entire scroll
+        setUiProgress(old => Math.round(old * 32) === Math.round(p * 32) ? old : p);
       }
     });
     triggerRef.current = trigger;
@@ -159,9 +164,9 @@ export default function App() {
       <article className="story-copy" aria-live="off" style={{opacity:1-(1-Math.min(1,Math.abs(uiProgress-.11)/.012))*.94}}><div className="chapter">{coda ? 'COMPLETE WORLD' : `${String(stageIndex + 1).padStart(2, '0')} / ${STAGE_COUNT}`}</div><h2>{title}</h2><p>{description}</p></article>
       <p className="sr-only" aria-live="polite" aria-atomic="true">{coda ? 'Complete factory overview' : `Stage ${stageIndex + 1}: ${copy.labels[stageIndex]}`}</p>
       <div className="right-note">CURRENT STATION<strong>{stage ? copy.labels[stageIndex] : 'THE LIVING FACTORY'}</strong></div>
-      <footer className="story-footer"><div className="eyebrow-bar"><span>ONE ORGANISM / TWO SCIENTIFIC PATHWAYS</span><span>{Math.round(uiProgress * 100)}%</span></div>
+      <footer className="story-footer"><div className="eyebrow-bar"><span>ONE ORGANISM / TWO SCIENTIFIC PATHWAYS</span><span ref={percentTextRef}>{Math.round(uiProgress * 100)}%</span></div>
         <nav className="stage-nav" aria-label="Ten scientific stages">{STAGES.map((s, i) => <button type="button" key={s.id} className={!coda && stageIndex === i ? 'active' : ''} aria-label={`Go to ${copy.labels[i].toLowerCase()} stage`} aria-current={!coda && stageIndex === i ? 'step' : undefined} onClick={() => seek(s.progress)}>{copy.labels[i]}</button>)}</nav>
-        <div className="track" role="progressbar" aria-label="Factory journey progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(uiProgress * 100)}><div style={{transform: `scaleX(${uiProgress})`}} /></div>
+        <div className="track" role="progressbar" aria-label="Factory journey progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(uiProgress * 100)}><div ref={trackBarRef} style={{transform: `scaleX(${uiProgress})`}} /></div>
         <div className="footnote"><button type="button" onClick={() => seek(0)}>↶ RESTART</button><span>SCROLL VERTICALLY · ARROW KEYS TO CHANGE CHAPTER</span>{using3D && sceneReady && <button type="button" aria-pressed={!detail} onClick={() => setDetail(v => !v)}>{detail ? 'FULL DETAIL' : 'SIMPLIFIED DETAIL'}</button>}</div>
       </footer>
       {using3D && !sceneReady && <div className="load-status" role="status">LOADING 3D WORLD…</div>}

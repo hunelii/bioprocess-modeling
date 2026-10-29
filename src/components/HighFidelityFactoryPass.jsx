@@ -353,7 +353,7 @@ function ZoneGFermentationHero({ progressRef }) {
     // A. 7-Turn Helical Serpentine Heat-Exchanger Cooling Coil (r = 0.74m, z = 1.76..2.92)
     const coilPts = [];
     const turns = 7.0;
-    const coilSteps = 140;
+    const coilSteps = 64;
     const coilR = 0.74;
     for (let i = 0; i <= coilSteps; i++) {
       const t = i / coilSteps;
@@ -365,7 +365,7 @@ function ZoneGFermentationHero({ progressRef }) {
         cz
       ));
     }
-    internalStaticSteel.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coilPts), 140, 0.024, 8, false));
+    internalStaticSteel.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(coilPts), 64, 0.024, 6, false));
     // Vertical cooling-water supply & return risers for the helical coil + 4 vertical coil support struts
     internalStaticSteel.push(transformGeo(new THREE.CylinderGeometry(0.024, 0.024, 1.76, 8), [25.0 + coilR, 0, 2.64], [Math.PI / 2, 0, 0]));
     internalStaticSteel.push(transformGeo(new THREE.CylinderGeometry(0.024, 0.024, 0.65, 8), [25.0 - coilR, 0, 3.20], [Math.PI / 2, 0, 0]));
@@ -492,9 +492,9 @@ function ZoneGFermentationHero({ progressRef }) {
       const tubeR = 0.010 + (s % 4) * 0.004;
       biomassGeos.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, tubeR, 5, false));
     }
-    // 65 Buoyant golden-cream fungal pellets/flocs circulating through the broth
-    const pelletGeo = new THREE.DodecahedronGeometry(0.026, 1);
-    for (let p = 0; p < 65; p++) {
+    // 32 Buoyant golden-cream fungal pellets/flocs circulating through the broth
+    const pelletGeo = new THREE.DodecahedronGeometry(0.026, 0);
+    for (let p = 0; p < 32; p++) {
       const pa = rand() * Math.PI * 2;
       const pr = 0.16 + rand() * 0.56;
       const pz = -0.70 + rand() * 1.08;
@@ -504,10 +504,10 @@ function ZoneGFermentationHero({ progressRef }) {
       biomassGeos.push(transformGeo(pelletGeo, [Math.cos(pa) * pr, Math.sin(pa) * pr, pz], [rand() * 3, rand() * 3, 0], [sx, sy, sz]));
     }
 
-    // 300 Rising Specular Oxygen Bubbles from the bottom ring sparger
+    // 140 Rising Specular Oxygen Bubbles from the bottom ring sparger
     const bubbleGeos = [];
-    const sphereBubble = new THREE.SphereGeometry(0.014, 7, 6);
-    for (let i = 0; i < 300; i++) {
+    const sphereBubble = new THREE.OctahedronGeometry(0.014, 0);
+    for (let i = 0; i < 140; i++) {
       const ba = rand() * Math.PI * 2;
       const br = 0.14 + rand() * 0.72;
       const bz = -0.76 + rand() * 1.16;
@@ -527,11 +527,14 @@ function ZoneGFermentationHero({ progressRef }) {
     };
   }, []);
 
+  const lastP = useRef(-1);
   useFrame(() => {
     const p = progressRef.current;
     const active = p >= 0.66;
     if (groupRef.current) groupRef.current.visible = active;
     if (!active) return;
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
 
     brothMat.uniforms.uTime.value = p * 28.0;
     if (agitatorRef.current) {
@@ -548,10 +551,6 @@ function ZoneGFermentationHero({ progressRef }) {
 
   return (
     <group ref={groupRef} name="ZONE_G_PRECISION_FERMENTATION_HERO" visible={false}>
-      {/* Dedicated internal bioreactor core illumination so the coil, impellers & biomass shine through the sight-glass */}
-      <pointLight position={[25.0, -0.45, 2.35]} color="#ffdfa8" intensity={1.85} distance={3.8} decay={2} />
-      <pointLight position={[25.0, -1.55, 2.45]} color="#fff5e0" intensity={1.15} distance={4.5} decay={2} />
-
       {/* Exterior Vessel Flanges, Lower Jacket, Upper Dome & Manifolds */}
       <mesh geometry={batched.mirrorGeo} material={mirrorSteelMat} />
       <mesh geometry={batched.boltsGeo} material={darkIndustrialMat} />
@@ -571,7 +570,7 @@ function ZoneGFermentationHero({ progressRef }) {
         <mesh geometry={batched.biomassVortexGeo} material={mycelialBiomassMat} />
       </group>
 
-      {/* 300 Rising Specular Oxygenation Bubbles from the Bottom Ring Sparger */}
+      {/* Rising Specular Oxygenation Bubbles from the Bottom Ring Sparger */}
       <group ref={bubblesRef} position={[25.0, 0, 2.50]}>
         <mesh geometry={batched.bubblesGeo} material={bubbleMat} />
       </group>
@@ -597,7 +596,7 @@ function ZoneGFermentationHero({ progressRef }) {
 // Helper to create 3D chalk line strokes on the chalkboard (at y = 1.106, in XZ plane)
 function chalkStroke(pts2D, radius = 0.0048, yPlane = 1.106) {
   const vecs = pts2D.map(([x, z]) => new THREE.Vector3(x, yPlane, z));
-  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(vecs), Math.max(8, pts2D.length * 4), radius, 5, false);
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(vecs), Math.max(4, pts2D.length * 2), radius, 4, false);
 }
 
 function ZoneHOptimizationHero({ progressRef }) {
@@ -1002,9 +1001,6 @@ function ZoneHOptimizationHero({ progressRef }) {
 
   return (
     <group ref={groupRef} name="ZONE_H_PROCESS_OPTIMIZATION_AND_SHOWCASE" visible={false}>
-      {/* Dedicated warm overhead chalkboard & desk study lamp */}
-      <pointLight position={[30.10, -0.65, 2.85]} color="#fff3dc" intensity={1.45} distance={6.5} decay={2} />
-
       {/* 1. Large Slate Chalkboard (Kara Tahta) Surface */}
       <mesh position={[30.10, 1.112, 2.24]} rotation={[Math.PI / 2, 0, 0]} material={chalkboardMat}>
         <planeGeometry args={[3.26, 1.38]} />

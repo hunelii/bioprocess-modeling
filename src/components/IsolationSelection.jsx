@@ -19,7 +19,7 @@ export function IsolationSelection({ progressRef }) {
   const transfer = useRef();
   const loopToolRef = useRef();
   const loopSampleRef = useRef();
-  const light = useRef();
+  const lastP = useRef(-1);
 
   const sourceColonyMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: { uGrowth: { value: 0 }, uSeed: { value: 2.71 } },
@@ -130,13 +130,17 @@ export function IsolationSelection({ progressRef }) {
 
   useFrame(() => {
     const p = progressRef.current;
-    const activeGlow = eased(.240, .272, p) * (1 - eased(.33, .36, p));
-    if (light.current) {
-      light.current.visible = activeGlow > 0.01;
-      if (light.current.visible) light.current.intensity = 0.25 + 0.95 * activeGlow;
-    }
-
     const inZoneC = (p >= 0.20 && p <= 0.40) || p > 0.92;
+    if (!inZoneC) {
+      if (sourceGroupRef.current) sourceGroupRef.current.visible = false;
+      if (isolateGroupRef.current) isolateGroupRef.current.visible = false;
+      if (transfer.current) transfer.current.visible = false;
+      if (loopToolRef.current) loopToolRef.current.visible = false;
+      return;
+    }
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
+
     const sourceReveal = p > 0.92 ? 1.0 : eased(.243, .268, p);
     const selectedReveal = p > 0.92 ? 1.0 : eased(.301,.320,p);
 
@@ -245,13 +249,11 @@ export function IsolationSelection({ progressRef }) {
           <mesh geometry={batchedHardware.handleShaftGeo} material={handleMat} />
           {/* Harvested Mycelial Agar Film Held Right Inside the Circular Wire Loop Ring at (0, 0.0085, 0) */}
           <mesh ref={loopSampleRef} position={[0, 0.0085, 0]} rotation={[Math.PI / 2 + 0.25, 0, 0]}>
-            <cylinderGeometry args={[0.0076, 0.0076, 0.0018, 20]} />
+            <cylinderGeometry args={[0.0076, 0.0076, 0.0018, 16]} />
             <meshStandardMaterial color="#f8f6ec" emissive="#c5e8cf" emissiveIntensity={0.28} roughness={0.5} />
           </mesh>
         </group>
       </group>
-
-      <pointLight ref={light} position={[7.45, -.55, 2.3]} color="#fff5e2" intensity={.25} distance={3.5} decay={2} />
     </>
   );
 }

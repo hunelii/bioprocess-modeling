@@ -154,9 +154,9 @@ const COLS_X = [13.72, 14.52, 15.32, 16.12, 16.92];
 const ROWS_Z = [1.05, 1.71, 2.38];
 
 function IncubatorArchitecturalDetailing({ progressRef }) {
-  const massRefs = useRef([]);
+  const rowRefs = useRef([]);
   const bubblePointsRef = useRef();
-  const massGeo = useMemo(createSubmergedFungalMassGeometry, []);
+  const lastP = useRef(-1);
 
   const liquidMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: { uTime: { value: 0 } },
@@ -166,32 +166,16 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
     depthWrite: false
   }), []);
 
-  const containers = useMemo(() => {
-    const arr = [];
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 5; col++) {
-        const order = row * 5 + col;
-        arr.push({
-          col,
-          row,
-          order,
-          isMacroRef: col === 2 && row === 1,
-          pos: [COLS_X[col], 0.08, ROWS_Z[row]],
-          mat: new THREE.ShaderMaterial({
-            uniforms: { uGrowth: { value: 0 } },
-            vertexShader: fungalMassVertexShader,
-            fragmentShader: fungalMassFragmentShader,
-            transparent: true
-          })
-        });
-      }
-    }
-    return arr;
-  }, []);
+  const sharedMassMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { uGrowth: { value: 1.0 } },
+    vertexShader: fungalMassVertexShader,
+    fragmentShader: fungalMassFragmentShader,
+    transparent: true
+  }), []);
 
   // Rising 3D oxygen bubbles across all 15 liquid containers
   const o2Bubbles = useMemo(() => {
-    const perTank = 28;
+    const perTank = 12;
     const count = 15 * perTank;
     const pos = new Float32Array(count * 3);
     const baseZ = new Float32Array(count);
@@ -225,14 +209,16 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
     color: '#a8f0c6', transparent: true, opacity: 0.75
   }), []);
 
-  // Batch all 15 liquid volumes, 15 bottom oxygen sparger diffusers, and transfer pipes to Zone F & G!
+  // Batch all 15 liquid volumes, 15 bottom oxygen sparger diffusers, 3 row-grouped fungal mass meshes, and transfer pipes to Zone F & G!
   const batched = useMemo(() => {
+    const singleMass = createSubmergedFungalMassGeometry();
     const liquidList = [];
     const spargerList = [];
+    const rowMassGeos = [[], [], []];
     const steelList = [
       transformGeo(new THREE.BoxGeometry(2.55, 0.22, 0.12), [15.5, -1.16, 3.27])
     ];
-    const pillarCyl = new THREE.CylinderGeometry(0.055, 0.055, 2.68, 14);
+    const pillarCyl = new THREE.CylinderGeometry(0.055, 0.055, 2.68, 12);
     for (const xPos of [13.21, 15.38, 17.78]) {
       steelList.push(transformGeo(pillarCyl, [xPos, -1.24, 1.86], [Math.PI / 2, 0, 0]));
     }
@@ -244,13 +230,12 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
       for (let col = 0; col < 5; col++) {
         const cx = COLS_X[col], cy = 0.08, cz = ROWS_Z[row];
         liquidList.push(transformGeo(liqBox, [cx, cy, cz - 0.01]));
-        // Perforated bottom O2 sparger bar at the bottom of each tank
         spargerList.push(transformGeo(spargerBar, [cx, cy - 0.08, cz - 0.142], [0, 0, Math.PI / 2]));
+        // Position relative to row center [15.32, 0.08, ROWS_Z[row]] so each row scales cleanly around its shelf center
+        rowMassGeos[row].push(transformGeo(singleMass, [cx - 15.32, 0, 0]));
       }
     }
 
-    // Sanitary Transfer Manifold connecting Incubator (x=17.15) -> Fruiting Chamber (x=18.84) & Fermenter (x=23.5)
-    // so the user clearly sees where the incubated culture is transferred next!
     const transferUpper = new THREE.TubeGeometry(
       new THREE.CatmullRomCurve3([
         new THREE.Vector3(17.15, 0.08, 1.71),
@@ -258,7 +243,7 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
         new THREE.Vector3(18.35, 0.08, 1.98),
         new THREE.Vector3(18.84, 0.08, 1.98)
       ]),
-      24, 0.036, 10, false
+      18, 0.036, 8, false
     );
     const transferLower = new THREE.TubeGeometry(
       new THREE.CatmullRomCurve3([
@@ -267,40 +252,40 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
         new THREE.Vector3(18.10, 0.85, 0.72),
         new THREE.Vector3(23.60, 0.85, 0.72)
       ]),
-      28, 0.042, 10, false
+      20, 0.042, 8, false
     );
     steelList.push(transferUpper, transferLower);
 
     return {
       liquidGeo: mergeGeometriesFast(liquidList),
       spargerGeo: mergeGeometriesFast(spargerList),
-      steelGeo: mergeGeometriesFast(steelList)
+      steelGeo: mergeGeometriesFast(steelList),
+      rowGeos: rowMassGeos.map(list => mergeGeometriesFast(list))
     };
   }, []);
 
   useFrame(() => {
     const p = progressRef.current;
-    const inView = p >= 0.36;
-    if (!inView) return;
+    if (p < 0.36) return;
+    if (Math.abs(p - lastP.current) < 0.0003) return;
+    lastP.current = p;
 
     const growth = p > 0.92 ? 1.0 : incubEase(.465, .540, p);
-    // Keep uTime driven by scroll progress + gentle offset so bubbles stream smoothly
     liquidMat.uniforms.uTime.value = p * 38.0;
+    sharedMassMat.uniforms.uGrowth.value = Math.max(0.05, growth);
 
-    for (let i = 0; i < containers.length; i++) {
-      const m = massRefs.current[i];
+    for (let row = 0; row < 3; row++) {
+      const m = rowRefs.current[row];
       if (!m) continue;
-      const c = containers[i];
-      const phase = THREE.MathUtils.clamp(growth * 1.45 - c.order * 0.035, 0, 1);
+      const phase = THREE.MathUtils.clamp(growth * 1.35 - row * 0.15, 0, 1);
       m.visible = phase > 0.02;
       if (m.visible) {
-        c.mat.uniforms.uGrowth.value = phase;
         const s = 0.28 + 0.72 * phase;
-        m.scale.set(s, s, s);
+        m.scale.set(1, s, s);
       }
     }
 
-    if (bubblePointsRef.current) {
+    if (bubblePointsRef.current && p <= 0.68) {
       const attr = bubblePointsRef.current.geometry.attributes.position;
       for (let i = 0; i < o2Bubbles.count; i++) {
         const z0 = o2Bubbles.baseZ[i];
@@ -327,14 +312,14 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
         <pointsMaterial color="#d8fceb" size={0.016} transparent opacity={0.82} depthWrite={false} sizeAttenuation />
       </points>
 
-      {/* 15 Buoyant Submerged Fungal Mycelium Masses Growing in the Aerated Liquid */}
-      {containers.map((c, i) => (
+      {/* 15 Buoyant Submerged Fungal Mycelium Masses Batched into 3 Shelf Rows (3 Draw Calls Total) */}
+      {ROWS_Z.map((rz, row) => (
         <mesh
-          key={i}
-          ref={el => massRefs.current[i] = el}
-          geometry={massGeo}
-          material={c.mat}
-          position={c.pos}
+          key={row}
+          ref={el => rowRefs.current[row] = el}
+          geometry={batched.rowGeos[row]}
+          material={sharedMassMat}
+          position={[15.32, 0.08, rz]}
           visible={false}
         />
       ))}
@@ -387,35 +372,11 @@ function ReferenceMycelium({ progressRef }) {
   );
 }
 
-function IncubationLighting({ progressRef }) {
-  const rack = useRef(), bottomO2Light = useRef();
-  useFrame(() => {
-    const p = progressRef.current;
-    const inZoneE = p >= 0.41 && p <= 0.68;
-    const a = incubEase(.450, .496, p);
-    if (rack.current) {
-      rack.current.visible = inZoneE;
-      if (inZoneE) rack.current.intensity = .45 + 1.25 * a;
-    }
-    if (bottomO2Light.current) {
-      bottomO2Light.current.visible = inZoneE;
-      if (inZoneE) bottomO2Light.current.intensity = .35 + 1.15 * a;
-    }
-  });
-  return (
-    <>
-      <pointLight ref={rack} position={[15.49, -1.25, 2.78]} color="#fff3de" intensity={.45} distance={7.5} decay={2} />
-      <pointLight ref={bottomO2Light} position={[15.32, -0.35, 1.15]} color="#8ef2c0" intensity={.35} distance={5.5} decay={2} />
-    </>
-  );
-}
-
 export function ControlledIncubation({ progressRef }) {
   return (
     <>
       <IncubatorArchitecturalDetailing progressRef={progressRef} />
       <ReferenceMycelium progressRef={progressRef} />
-      <IncubationLighting progressRef={progressRef} />
     </>
   );
 }

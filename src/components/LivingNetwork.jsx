@@ -107,8 +107,8 @@ export function LivingNetwork({ progressRef }) {
   const tierRefs = useRef([]);
   const crossRefs = useRef([]);
   const groupRef = useRef();
-  const macroLightRef = useRef();
   const bubbleGroupRef = useRef();
+  const lastP = useRef(-1);
 
   const webMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: { uGrowth: { value: 0 }, uSeed: { value: 5.83 } },
@@ -197,11 +197,9 @@ export function LivingNetwork({ progressRef }) {
     const active = visibleFraction > 0.001;
 
     if (groupRef.current) groupRef.current.visible = active;
-    if (macroLightRef.current) {
-      macroLightRef.current.visible = active;
-      if (active) macroLightRef.current.intensity = 1.45 * visibleFraction;
-    }
     if (!active) return;
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
 
     webMat.uniforms.uGrowth.value = visibleFraction;
     if (bubbleGroupRef.current) {
@@ -227,13 +225,13 @@ export function LivingNetwork({ progressRef }) {
 
       {/* Translucent Oxygenated Liquid Backlight Window inside the Central Incubator Tank */}
       <mesh position={[15.32, -0.222, 1.665]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.165, 40]} />
+        <circleGeometry args={[0.165, 32]} />
         <meshBasicMaterial color="#123024" transparent opacity={0.52} depthWrite={false} />
       </mesh>
 
       {/* Suspended Gossamer Rhizomorphic Mycelium Core in Liquid Culture */}
       <mesh position={[15.32, -0.238, 1.665]} rotation={[Math.PI / 2, 0, 0]} scale={[0.16, 0.16, 1]} material={webMat}>
-        <circleGeometry args={[1, 40]} />
+        <circleGeometry args={[1, 32]} />
       </mesh>
 
       {/* Rising Micro-Bubbles around the 3D Hyphal Filaments */}
@@ -262,8 +260,6 @@ export function LivingNetwork({ progressRef }) {
           frustumCulled={false}
         />
       ))}
-
-      <pointLight ref={macroLightRef} position={[15.28, -0.42, 1.74]} color="#e8fff0" intensity={0} distance={1.15} decay={2} />
     </group>
   );
 }
