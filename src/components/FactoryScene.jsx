@@ -157,7 +157,6 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
     <>
       <primitive object={world} dispose={null} />
       <HighFidelityFactoryPass progressRef={progressRef} />
-      <SporeReveal progressRef={progressRef}/>
       <PetriLight progressRef={progressRef}/>
       <IsolationSelection progressRef={progressRef}/>
       <CultureExpansion progressRef={progressRef}/>
@@ -187,6 +186,16 @@ function CinematicLightRig({ progressRef }) {
   const ambient = useRef();
   const key = useRef();
   const rim = useRef();
+  const camera = useThree(state => state.camera);
+  useEffect(() => {
+    camera.up.copy(UP);
+    const point = cameraAt(scene01CameraProgress(clamp01(progressRef.current)));
+    camera.position.set(...point.position);
+    LOOK_AT.set(...point.target);
+    camera.lookAt(LOOK_AT);
+    camera.fov = point.fov;
+    camera.updateProjectionMatrix();
+  }, [camera, progressRef]);
   useFrame(() => {
     const p = clamp01(progressRef.current);
     const t = Math.max(0, Math.min(1, (p - .058) / .052));
@@ -230,6 +239,7 @@ const FactoryScene = React.memo(function FactoryScene({ progressRef, registerInv
       <fog attach="fog" args={['#07120d', 18, 86]} />
       <CinematicLightRig progressRef={progressRef} />
       <LookdevLocalLights />
+      <SporeReveal progressRef={progressRef}/>
       <Suspense fallback={null}><PanoramaEnvironment /></Suspense>
       <Suspense fallback={null}>
         <World progressRef={progressRef} registerInvalidate={registerInvalidate} detail={detail} onReady={onReady} />
