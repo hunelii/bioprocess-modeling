@@ -4,12 +4,12 @@ import * as THREE from 'three';
 import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
 
 // Eight-zone locked world: Zone E is fixed at X 13.25–17.75 metres.
-// Multi-System Hybrid Bioprocess Incubator Bay combining:
-// 1. Lower Tier (z = 0.90..1.52): Orbital Shaker Platform with 10 Borosilicate Fernbach/Erlenmeyer Seed Flasks
-// 2. Middle Tier (z = 1.58..2.18): 5 Cylindrical Borosilicate "Airlift / Bubble-Column" Bioreactors with internal draft tubes,
-//    bottom O2 ring spargers, 3D branching rhizomorphic hyphal networks & stellate mycelial micro-pellets
-// 3. Upper Tier (z = 2.24..2.78): 10 Cylindrical Solid-State Substrate Colonization Jars with progressive climbing rhizomorphic mycelium
-// 4. Climate-Controlled Walk-In Chamber Frame, O2 Rotameters, Digital Control Header & Dual-Pathway Transfer Manifolds (to Zone F & Zone G)
+// 3-Tier Multi-Deck Orbital Shaker & Aerated Flask Incubator Bay:
+// - All 3 Shelves (z = 0.90, 1.58, 2.24) are equipped with synchronized eccentric-drive Orbital Shaker Decks
+// - 30 High-Detail Borosilicate Fernbach & Baffled Erlenmeyer Shake Flasks (10 per shelf: 5 columns x 2 rows)
+// - Individual overhead O2 gas distribution rails, silicone sparging capillaries, glowing sintered micro-sparger tips,
+//   spring-wire petal clamps, frosted graduation scales, digital RPM/temp telemetry bars, O2 rotameter flowmeters,
+//   and dual sanitary transfer manifolds feeding Zone F & Zone G.
 export const INCUBATION_WINDOW = Object.freeze([.43, .54]);
 export const INCUBATOR_CENTER = Object.freeze([15.5, .08, 1.87]);
 export const INCUBATION_SUBSTRATES = 14;
@@ -31,21 +31,28 @@ export function updateIncubationBiomass(actors, p) {
   }
 }
 
-const airliftBrothVertexShader = `
+const shakerBrothVertexShader = `
   varying vec2 vUv;
   varying vec3 vNormal;
   varying vec3 vViewPos;
+  varying vec3 vLocalPos;
+  uniform float uOrbitAngle;
   void main() {
     vUv = uv;
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vLocalPos = position;
+    // Subtle centrifugal liquid surface slosh wave synced to orbital rotation
+    vec3 pos = position;
+    float slosh = 0.014 * (sin(uOrbitAngle + position.x * 14.0) + cos(uOrbitAngle - position.y * 14.0));
+    pos.z += slosh * smoothstep(0.2, 0.95, uv.y);
+    vec4 mv = modelViewMatrix * vec4(pos, 1.0);
     vViewPos = -mv.xyz;
     vNormal = normalize(normalMatrix * normal);
     gl_Position = projectionMatrix * mv;
   }
 `;
 
-// Cylindrical Airlift Bioreactor Broth Shader: bottom O2 sparger illumination + rising bubble streams + clear core fresnel
-const airliftBrothFragmentShader = `
+// Swirling Golden-Amber & Emerald Oxygenated Shake-Flask Broth Shader
+const shakerBrothFragmentShader = `
   uniform float uTime;
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -57,72 +64,27 @@ const airliftBrothFragmentShader = `
     float ndotv = clamp(abs(dot(N, V)), 0.0, 1.0);
 
     float h = clamp(vUv.y, 0.0, 1.0);
-    float spargerGlow = exp(-h * 2.2) * 0.72 + 0.28;
-
     float angle = vUv.x * 37.699;
-    float rise1 = sin(angle * 3.0 + sin(h * 18.0 - uTime * 3.2)) * cos(h * 26.0 - uTime * 4.5);
-    float rise2 = cos(angle * 5.0 - cos(h * 22.0 - uTime * 5.1));
-    float microStream = clamp(0.45 + 0.35 * rise1 + 0.25 * rise2, 0.0, 1.0);
 
-    vec3 deepTealAmber = vec3(0.14, 0.34, 0.26);
-    vec3 goldenCulture = vec3(0.58, 0.76, 0.52);
-    vec3 o2Foam = vec3(0.88, 0.99, 0.90);
+    // Centrifugal swirling ribbons & bottom sparger illumination
+    float swirl1 = sin(angle * 4.0 - uTime * 5.5 + h * 9.0);
+    float swirl2 = cos(angle * 7.0 + uTime * 4.2 - h * 12.0);
+    float ribbon = clamp(0.5 + 0.30 * swirl1 + 0.22 * swirl2, 0.0, 1.0);
 
-    vec3 col = mix(deepTealAmber, goldenCulture, spargerGlow);
-    col = mix(col, o2Foam, microStream * 0.38 + (1.0 - h) * 0.22);
+    vec3 deepAmber = vec3(0.46, 0.31, 0.09);
+    vec3 goldenNutrients = vec3(0.84, 0.65, 0.24);
+    vec3 o2BioGlow = vec3(0.62, 0.88, 0.68);
+    vec3 whiteFoam = vec3(0.95, 0.98, 0.92);
 
-    float topFoam = smoothstep(0.88, 0.99, h);
-    col = mix(col, o2Foam, topFoam * 0.65);
+    float bottomSparger = exp(-h * 2.5) * 0.55;
+    vec3 col = mix(deepAmber, goldenNutrients, 0.38 + 0.62 * ribbon);
+    col = mix(col, o2BioGlow, bottomSparger + ribbon * 0.22);
 
-    // Fresnel transparency: crisp edges, clear center so the internal draft tube & 3D mycelial network shine through
-    float alpha = mix(0.54, 0.24, ndotv) + topFoam * 0.22;
+    float meniscusFoam = smoothstep(0.82, 0.99, h);
+    col = mix(col, whiteFoam, meniscusFoam * 0.68);
+
+    float alpha = mix(0.68, 0.34, ndotv) + meniscusFoam * 0.18;
     gl_FragColor = vec4(col, alpha);
-  }
-`;
-
-const solidColonizationVertexShader = `
-  varying vec2 vUv;
-  varying vec3 vNormal;
-  void main() {
-    vUv = uv;
-    vNormal = normalize(normalMatrix * normal);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-// Upper Tier Solid-State Substrate Colonization Shader: branching white rhizomorphic mycelium climbing down/up the grain cylinder
-const solidColonizationFragmentShader = `
-  uniform float uGrowth;
-  varying vec2 vUv;
-  varying vec3 vNormal;
-
-  void main() {
-    if (uGrowth <= 0.01) discard;
-    // Colonization progresses from top inoculation port (vUv.y = 1.0) down to bottom (vUv.y = 0.0) and radially
-    float theta = vUv.x * 6.2831853;
-    float waveFront = 0.08 * sin(theta * 5.0) + 0.05 * cos(theta * 11.0);
-    float distFromTop = 1.0 - vUv.y;
-    float reach = uGrowth * 1.12 + waveFront;
-    if (distFromTop > reach) discard;
-
-    float nr = clamp(distFromTop / max(0.001, reach), 0.0, 1.0);
-
-    // Multi-order bifurcating rhizomorphic hyphal cords wrapping the substrate cylinder
-    float warp = 0.22 * sin(vUv.y * 22.0 + theta * 3.0);
-    float cord1 = pow(abs(cos((theta + warp) * 14.0)), 1.8);
-    float cord2 = pow(abs(sin((theta - warp * 0.7) * 32.0 + vUv.y * 18.0)), 2.4);
-    float cord3 = pow(abs(cos((theta + warp * 1.2) * 64.0 - vUv.y * 34.0)), 3.0);
-
-    float veins = cord1 * (1.0 - nr * 0.3) + cord2 * 0.8 + cord3 * smoothstep(0.3, 0.9, nr) * 0.75;
-    float denseMat = exp(-nr * 2.8);
-    float leadingTips = smoothstep(0.5, 0.95, veins) * (1.0 - smoothstep(0.82, 1.0, nr));
-    float density = clamp(denseMat * 0.88 + veins * 0.68 * (1.0 - smoothstep(0.75, 1.0, nr)) + leadingTips * 0.65, 0.0, 1.0);
-    if (density < 0.05) discard;
-
-    vec3 warmCream = vec3(0.88, 0.85, 0.76);
-    vec3 pureMycelium = vec3(0.98, 0.97, 0.93);
-    vec3 col = mix(warmCream, pureMycelium, smoothstep(0.2, 0.85, density));
-    gl_FragColor = vec4(col, density * 0.95);
   }
 `;
 
@@ -135,16 +97,16 @@ const pelletVertexShader = `
   varying float vPhase;
   void main() {
     vPhase = aPhase;
-    float localG = clamp((uGrowth - aOrder * 0.65) / 0.35, 0.0, 1.0);
+    float localG = clamp((uGrowth - aOrder * 0.58) / 0.42, 0.0, 1.0);
     vVisible = localG;
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     float dist = max(0.35, -mvPosition.z);
-    gl_PointSize = clamp((aSize * localG * 115.0) / dist, 0.0, 28.0);
+    gl_PointSize = clamp((aSize * localG * 125.0) / dist, 0.0, 28.0);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
 
-// Fluffy stellate (star-haired) cream-white mycelial micro-pellets suspended in the Airlift & Shaker reactors
+// Fluffy stellate (star-haired) cream-white mycelial micro-pellets swirling inside the 30 Shake Flasks
 const pelletFragmentShader = `
   varying float vVisible;
   varying float vPhase;
@@ -156,39 +118,50 @@ const pelletFragmentShader = `
     float theta = atan(uv.y, uv.x) + vPhase;
     float hairs = 0.5 + 0.5 * sin(theta * 17.0 + r * 6.0) * cos(theta * 29.0 - vPhase);
     float core = 1.0 - smoothstep(0.0, 0.50, r);
-    float halo = (1.0 - smoothstep(0.28, 0.98, r)) * (0.45 + 0.55 * hairs);
-    float alpha = clamp(core * 0.94 + halo * 0.68, 0.0, 0.96) * vVisible;
+    float halo = (1.0 - smoothstep(0.26, 0.98, r)) * (0.48 + 0.52 * hairs);
+    float alpha = clamp(core * 0.95 + halo * 0.72, 0.0, 0.96) * vVisible;
     if (alpha < 0.03) discard;
-    vec3 innerCream = vec3(0.98, 0.96, 0.90);
-    vec3 outerHyphae = vec3(0.86, 0.94, 0.84);
+    vec3 innerCream = vec3(0.99, 0.97, 0.91);
+    vec3 outerHyphae = vec3(0.88, 0.95, 0.85);
     gl_FragColor = vec4(mix(outerHyphae, innerCream, core), alpha);
   }
 `;
 
 const COLS_X = [13.72, 14.52, 15.32, 16.12, 16.92];
-const ROWS_Z = [1.05, 1.71, 2.38];
+const SHELF_Z = [0.90, 1.58, 2.24];
+const FLASK_ROWS_Y = [-0.14, 0.26];
 
-// Builds a 3D branching rhizomorphic & filamentous mycelial suspension plume for an Airlift Bioreactor Column
-function buildAirliftMyceliumPlume(cx, cy, cz, rad = 0.16, hSpan = 0.34, seed = 101) {
+// Builds a 3D swirling vortex of branching filamentous mycelium & buoyant biomass flocs inside a shake flask
+function buildFlaskSwirlingMycelium(cx, cy, fz, rBot, hBroth, seed = 101) {
   let s = seed;
   const rand = () => { s = (1664525 * s + 1013904223) >>> 0; return s / 4294967296; };
   const geos = [];
 
-  // Central buoyant flocculent inoculum cushion inside the draft tube
-  geos.push(transformGeo(new THREE.IcosahedronGeometry(0.032, 1), [cx, cy, cz - 0.02], [0, 0, 0], [1.1, 1.1, 1.35]));
+  // Central flocculent mycelial core cushion + 3 satellite biomass globules
+  geos.push(transformGeo(new THREE.IcosahedronGeometry(rBot * 0.16, 1), [cx, cy, fz + hBroth * 0.42], [0, 0, 0], [1.2, 1.2, 0.75]));
+  for (let g = 0; g < 3; g++) {
+    const ga = (g / 3) * Math.PI * 2 + seed * 0.4;
+    const gr = rBot * 0.42;
+    geos.push(transformGeo(
+      new THREE.IcosahedronGeometry(rBot * 0.11, 1),
+      [cx + Math.cos(ga) * gr, cy + Math.sin(ga) * gr, fz + hBroth * (0.35 + 0.18 * g)],
+      [0, 0, ga],
+      [1.3, 0.95, 0.7]
+    ));
+  }
 
-  // 24 Helical & Radially Branching 3D Hyphal Cords rising through the draft tube and looping into the outer annulus
-  const strandCount = 24;
+  // 14 Helical & Radially Branching 3D Hyphal Filaments caught in the orbital vortex
+  const strandCount = 14;
   for (let i = 0; i < strandCount; i++) {
-    const baseAng = (i / strandCount) * Math.PI * 2 + (rand() - 0.5) * 0.2;
+    const baseAng = (i / strandCount) * Math.PI * 2 + (rand() - 0.5) * 0.25;
     const pts = [];
-    const steps = 8;
+    const steps = 6;
     for (let j = 0; j <= steps; j++) {
       const u = j / steps;
-      // Rise up the central draft tube (u < 0.6) and fountain outward at the top of the airlift loop (u >= 0.6)
-      const rCurve = rad * (0.18 + 0.76 * Math.sin(u * Math.PI * 0.88)) * (0.75 + 0.25 * rand());
-      const swirl = baseAng + u * 1.15 + 0.16 * Math.sin(u * 6.0 + i);
-      const zPos = cz - hSpan * 0.45 + u * hSpan + 0.018 * Math.sin(u * Math.PI * 2.0);
+      const rCurve = rBot * (0.16 + 0.62 * Math.sin(u * Math.PI * 0.85)) * (0.80 + 0.20 * rand());
+      // Strong spiral vortex twist from orbital shaking
+      const swirl = baseAng + u * 2.1 + 0.18 * Math.sin(u * 5.0 + i);
+      const zPos = fz + 0.018 + u * (hBroth * 0.85) + 0.008 * Math.cos(u * Math.PI * 2.0);
       pts.push(new THREE.Vector3(
         cx + Math.cos(swirl) * rCurve,
         cy + Math.sin(swirl) * rCurve,
@@ -196,54 +169,26 @@ function buildAirliftMyceliumPlume(cx, cy, cz, rad = 0.16, hSpan = 0.34, seed = 
       ));
     }
     const curve = new THREE.CatmullRomCurve3(pts);
-    geos.push(new THREE.TubeGeometry(curve, 8, 0.0018 + (i % 3) * 0.0006, 4, false));
-
-    // Secondary Y-fork hyphal branches
-    if (i % 2 === 0) {
-      const forkPt = curve.getPointAt(0.52);
-      const subAng = baseAng + (i % 4 === 0 ? 0.55 : -0.55);
-      const subPts = [
-        forkPt,
-        new THREE.Vector3(
-          forkPt.x + Math.cos(subAng) * rad * 0.28,
-          forkPt.y + Math.sin(subAng) * rad * 0.28,
-          forkPt.z + 0.045
-        ),
-        new THREE.Vector3(
-          forkPt.x + Math.cos(subAng + 0.3) * rad * 0.46,
-          forkPt.y + Math.sin(subAng + 0.3) * rad * 0.46,
-          forkPt.z + 0.075
-        )
-      ];
-      geos.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(subPts), 5, 0.0011, 3, false));
-    }
+    geos.push(new THREE.TubeGeometry(curve, 6, 0.0016 + (i % 2) * 0.0005, 4, false));
   }
   return mergeGeometriesFast(geos);
 }
 
 function IncubatorArchitecturalDetailing({ progressRef }) {
-  const shakerGroupRef = useRef();
-  const airliftMyceliumRef = useRef();
-  const bubblePointsRef = useRef();
-  const lastP = useRef(-1);
+  const tierDeckRefs = useRef([]);
+  const tierBrothRefs = useRef([]);
+  const tierMyceliumRefs = useRef([]);
+  const tierPelletRefs = useRef([]);
+  const tierBubbleRefs = useRef([]);
 
-  const airliftBrothMat = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 } },
-    vertexShader: airliftBrothVertexShader,
-    fragmentShader: airliftBrothFragmentShader,
+  const shakerBrothMats = useMemo(() => [0, 1, 2].map((tier) => new THREE.ShaderMaterial({
+    uniforms: { uTime: { value: tier * 2.1 }, uOrbitAngle: { value: tier * 2.094 } },
+    vertexShader: shakerBrothVertexShader,
+    fragmentShader: shakerBrothFragmentShader,
     transparent: true,
     depthWrite: false,
     side: THREE.DoubleSide
-  }), []);
-
-  const solidColonizationMat = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: { uGrowth: { value: 0 } },
-    vertexShader: solidColonizationVertexShader,
-    fragmentShader: solidColonizationFragmentShader,
-    transparent: true,
-    depthWrite: false,
-    side: THREE.DoubleSide
-  }), []);
+  })), []);
 
   const pelletMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: { uGrowth: { value: 0 } },
@@ -254,418 +199,479 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
   }), []);
 
   const brushedSteelMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#93a19a', metalness: 0.78, roughness: 0.28, envMapIntensity: 0.85
+    color: '#95a39c', metalness: 0.80, roughness: 0.26, envMapIntensity: 0.88
   }), []);
 
   const darkIndustrialMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#18221d', metalness: 0.62, roughness: 0.42
-  }), []);
-
-  const substrateCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#3b2e20', roughness: 0.90, metalness: 0.04
-  }), []);
-
-  const shakerBrothMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#cfa044',
-    emissive: '#4d3208',
-    emissiveIntensity: 0.18,
-    roughness: 0.20,
-    metalness: 0.05,
-    transparent: true,
-    opacity: 0.62,
-    depthWrite: false
+    color: '#19231e', metalness: 0.55, roughness: 0.45
   }), []);
 
   const borosilicateGlassMat = useMemo(() => createFastGlassMaterial({
-    color: '#dcf0e5', opacity: 0.26, roughness: 0.06, envMapIntensity: 0.95, side: THREE.DoubleSide
+    color: '#dcf2e6', opacity: 0.27, roughness: 0.06, envMapIntensity: 0.96, side: THREE.DoubleSide
   }), []);
 
   const mycelialCordMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#f8f6ec',
-    emissive: '#386b4e',
-    emissiveIntensity: 0.22,
-    roughness: 0.58,
+    color: '#faf8ef',
+    emissive: '#3b7052',
+    emissiveIntensity: 0.24,
+    roughness: 0.55,
     metalness: 0.0
   }), []);
 
   const spargerGlowMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#98f5c4', transparent: true, opacity: 0.85
+    color: '#95f7c3', transparent: true, opacity: 0.88
   }), []);
 
   const blueCapMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#2b6e9e', roughness: 0.38, metalness: 0.25
+    color: '#286c9c', roughness: 0.36, metalness: 0.24
   }), []);
 
-  // Build all 3 Scientific Tiers + Walk-in Chamber Hardware + Dual Transfer Manifolds in batched geometries!
+  const siliconeTubeMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#d9eee4', transparent: true, opacity: 0.58, roughness: 0.25, metalness: 0.05
+  }), []);
+
+  const frostedScaleMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#eef7f2', transparent: true, opacity: 0.62, side: THREE.DoubleSide
+  }), []);
+
+  // Build Walk-In Climate Chamber + Pipe Manifolds + 3 Full-Width Animated Orbital Shaker Tiers (30 Flasks total)
   const batched = useMemo(() => {
-    const steelList = [];
-    const darkList = [];
-    const glassList = [];
-    const spargerList = [];
-    const substrateList = [];
-    const solidColonizationShells = [];
-    const airliftBrothList = [];
-    const airliftMyceliumList = [];
-
-    // Shaker platform dynamic lists (Row 0, z = 0.90..1.48)
-    const shakerSteelList = [];
-    const shakerGlassList = [];
-    const shakerBrothList = [];
-    const shakerCapList = [];
+    const staticSteelList = [];
+    const staticDarkList = [];
+    const staticGlassList = [];
+    const staticSpargerList = [];
+    const staticSiliconeList = [];
 
     // ============================================================================
-    // 0. WALK-IN / REACH-IN CLIMATE INCUBATOR HEADER, PILLARS & O2 ROTAMETERS
+    // 0. WALK-IN CLIMATE-CONTROLLED INCUBATOR CABINET, LOUVERS, SENSORS & O2 ROTAMETERS
     // ============================================================================
-    steelList.push(transformGeo(new THREE.BoxGeometry(4.56, 0.18, 0.14), [15.5, -1.18, 3.24]));
-    darkList.push(transformGeo(new THREE.BoxGeometry(4.42, 0.04, 0.10), [15.5, -1.26, 3.24]));
-    // Glowing digital climate control telemetry strip on the header fascia
+    // Top stainless climate header fascia & digital telemetry bar
+    staticSteelList.push(transformGeo(new THREE.BoxGeometry(4.56, 0.18, 0.14), [15.5, -1.18, 3.24]));
+    staticDarkList.push(transformGeo(new THREE.BoxGeometry(4.42, 0.04, 0.10), [15.5, -1.26, 3.24]));
     for (let d = 0; d < 6; d++) {
-      spargerList.push(transformGeo(new THREE.BoxGeometry(0.18, 0.015, 0.032), [13.85 + d * 0.65, -1.28, 3.24]));
+      staticSpargerList.push(transformGeo(new THREE.BoxGeometry(0.18, 0.015, 0.032), [13.85 + d * 0.65, -1.28, 3.24]));
     }
 
+    // 3 Vertical Brushed-Steel Structural Chamber Pillars
     const pillarCyl = new THREE.CylinderGeometry(0.052, 0.052, 2.68, 12);
     for (const xPos of [13.21, 15.48, 17.78]) {
-      steelList.push(transformGeo(pillarCyl, [xPos, -1.24, 1.86], [Math.PI / 2, 0, 0]));
+      staticSteelList.push(transformGeo(pillarCyl, [xPos, -1.24, 1.86], [Math.PI / 2, 0, 0]));
     }
 
-    // Left (x=13.28) & Right (x=17.68) O2 Rotameter Flowmeter Banks
+    // Rear Chamber Ribbed Laminar Air-Duct Plenums & Ceiling Temp/RH/O2 Sensor Probes
+    for (let col = 0; col < 5; col++) {
+      const cx = COLS_X[col];
+      staticSteelList.push(transformGeo(new THREE.BoxGeometry(0.52, 0.03, 1.82), [cx, 0.56, 1.82]));
+      for (let lv = 0; lv < 9; lv++) {
+        staticDarkList.push(transformGeo(new THREE.BoxGeometry(0.46, 0.012, 0.022), [cx, 0.54, 1.02 + lv * 0.20]));
+      }
+      // Hanging Environmental PT100 Temperature & Optical O2 Probe on each shelf
+      for (let tier = 0; tier < 3; tier++) {
+        const zCeil = SHELF_Z[tier] + 0.62;
+        staticSteelList.push(transformGeo(new THREE.CylinderGeometry(0.006, 0.006, 0.11, 8), [cx + 0.28, -0.02, zCeil - 0.06], [Math.PI / 2, 0, 0]));
+        staticSpargerList.push(transformGeo(new THREE.SphereGeometry(0.009, 8, 6), [cx + 0.28, -0.02, zCeil - 0.12]));
+      }
+    }
+
+    // Left (x=13.28) & Right (x=17.68) 3-Channel O2 Rotameter Flowmeter Banks (1 flowmeter per shaker tier!)
     for (const rx of [13.28, 17.68]) {
-      steelList.push(transformGeo(new THREE.BoxGeometry(0.11, 0.035, 0.88), [rx, -1.18, 1.88]));
+      staticSteelList.push(transformGeo(new THREE.BoxGeometry(0.12, 0.04, 0.96), [rx, -1.18, 1.88]));
+      staticDarkList.push(transformGeo(new THREE.BoxGeometry(0.09, 0.015, 0.90), [rx, -1.20, 1.88]));
       for (const rz of [1.54, 1.88, 2.22]) {
-        glassList.push(transformGeo(new THREE.CylinderGeometry(0.014, 0.011, 0.24, 10), [rx, -1.21, rz], [Math.PI / 2, 0, 0]));
-        spargerList.push(transformGeo(new THREE.SphereGeometry(0.011, 8, 6), [rx, -1.21, rz + 0.03]));
-        steelList.push(transformGeo(new THREE.CylinderGeometry(0.016, 0.016, 0.025, 10), [rx, -1.225, rz - 0.13]));
+        staticGlassList.push(transformGeo(new THREE.CylinderGeometry(0.015, 0.012, 0.25, 10), [rx, -1.215, rz], [Math.PI / 2, 0, 0]));
+        staticSpargerList.push(transformGeo(new THREE.SphereGeometry(0.011, 8, 6), [rx, -1.215, rz + 0.035]));
+        staticSteelList.push(transformGeo(new THREE.CylinderGeometry(0.017, 0.017, 0.026, 10), [rx, -1.23, rz - 0.135]));
       }
     }
 
     // ============================================================================
-    // 1. LOWER TIER (z = 0.90..1.52): ORBITAL SHAKER PLATFORM & 10 FERNBACH / ERLENMEYER FLASKS
+    // 1. SANITARY PIPE MANIFOLDS & 3-TIER OVERHEAD O2 GAS DISTRIBUTION RAILS
     // ============================================================================
-    // Continuous brushed-steel orbital shaker tray deck suspended on 6 eccentric drive bearings at z = 0.935
-    shakerSteelList.push(transformGeo(new THREE.BoxGeometry(3.85, 0.76, 0.022), [15.32, 0.06, 0.935]));
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      // Eccentric drive motor housing fixed to the bottom shelf at z = 0.91
-      darkList.push(transformGeo(new THREE.CylinderGeometry(0.08, 0.09, 0.032, 12), [cx, 0.06, 0.912], [Math.PI / 2, 0, 0]));
-
-      // 2 Wide-Body Borosilicate Fernbach / Erlenmeyer Shake Flasks per column (front y = -0.13, rear y = +0.25)
-      for (const fy of [-0.13, 0.25]) {
-        const fz = 0.948;
-        // Stainless spring clamp petals holding flask base to shaker deck
-        shakerSteelList.push(transformGeo(new THREE.CylinderGeometry(0.148, 0.155, 0.018, 16, 1, true), [cx, fy, fz + 0.012], [Math.PI / 2, 0, 0]));
-        // Conical Fernbach/Erlenmeyer glass body + cylindrical neck + rim lip
-        shakerGlassList.push(
-          transformGeo(new THREE.CylinderGeometry(0.052, 0.145, 0.26, 20, 1, true), [cx, fy, fz + 0.14], [Math.PI / 2, 0, 0]),
-          transformGeo(new THREE.CylinderGeometry(0.048, 0.052, 0.09, 16, 1, true), [cx, fy, fz + 0.315], [Math.PI / 2, 0, 0]),
-          transformGeo(new THREE.TorusGeometry(0.050, 0.004, 6, 16), [cx, fy, fz + 0.36])
-        );
-        // Sterile blue breathable membrane screw cap + stainless O2 feed capillary
-        shakerCapList.push(transformGeo(new THREE.CylinderGeometry(0.054, 0.052, 0.048, 16), [cx, fy, fz + 0.375], [Math.PI / 2, 0, 0]));
-        shakerSteelList.push(transformGeo(new THREE.CylinderGeometry(0.004, 0.004, 0.08, 6), [cx, fy, fz + 0.42], [Math.PI / 2, 0, 0]));
-        // Swirling golden-amber liquid broth inside each Erlenmeyer flask + concave vortex meniscus
-        shakerBrothList.push(
-          transformGeo(new THREE.CylinderGeometry(0.105, 0.140, 0.11, 18), [cx, fy, fz + 0.060], [Math.PI / 2, 0, 0]),
-          transformGeo(new THREE.TorusGeometry(0.072, 0.028, 6, 18), [cx, fy, fz + 0.112], [0.08, 0, 0], [1, 1, 0.28])
-        );
-      }
-    }
-
-    // ============================================================================
-    // 2. MIDDLE TIER (z = 1.58..2.18): 5 CYLINDRICAL "AIRLIFT / BUBBLE-COLUMN" GLASS BIOREACTORS
-    // ============================================================================
-    // Note: Central reactor at col = 2 (x = 15.32) is slightly wider (r = 0.255m) so its front glass wall
-    // passes right through y = -0.235, z = 1.665 for the seamless Scene 07 Macro zoom!
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      const isHero = col === 2;
-      const cy = isHero ? 0.015 : 0.05;
-      const rCol = isHero ? 0.252 : 0.215;
-      const zBot = 1.582;
-      const zTop = 2.165;
-      const hCol = zTop - zBot;
-      const zMid = (zBot + zTop) * 0.5;
-
-      // Sanitary stainless bottom sparger base & top headplate flange
-      steelList.push(
-        transformGeo(new THREE.CylinderGeometry(rCol * 1.06, rCol * 1.10, 0.036, 28), [cx, cy, zBot + 0.018], [Math.PI / 2, 0, 0]),
-        transformGeo(new THREE.CylinderGeometry(rCol * 1.06, rCol * 1.06, 0.034, 28), [cx, cy, zTop - 0.017], [Math.PI / 2, 0, 0]),
-        // Domed sanitary top cover & exhaust condenser port
-        transformGeo(new THREE.SphereGeometry(rCol * 0.96, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), [cx, cy, zTop], [0, 0, 0], [1, 1, 0.22]),
-        transformGeo(new THREE.CylinderGeometry(0.018, 0.018, 0.06, 10), [cx - rCol * 0.45, cy - rCol * 0.35, zTop + 0.03], [Math.PI / 2, 0, 0])
+    for (let tier = 0; tier < 3; tier++) {
+      const zRail = SHELF_Z[tier] + 0.53;
+      // Horizontal brushed-stainless O2 supply header above each shelf
+      staticSteelList.push(
+        transformGeo(new THREE.CylinderGeometry(0.016, 0.016, 3.68, 10), [15.32, 0.06, zRail], [0, 0, Math.PI / 2]),
+        // Left & Right manifold pressure regulator blocks
+        transformGeo(new THREE.BoxGeometry(0.06, 0.06, 0.06), [13.48, 0.06, zRail]),
+        transformGeo(new THREE.BoxGeometry(0.06, 0.06, 0.06), [17.16, 0.06, zRail])
       );
-      // Dark EPDM sanitary flange gaskets
-      darkList.push(
-        transformGeo(new THREE.TorusGeometry(rCol * 1.02, 0.006, 6, 28), [cx, cy, zBot + 0.036]),
-        transformGeo(new THREE.TorusGeometry(rCol * 1.02, 0.006, 6, 28), [cx, cy, zTop - 0.034])
-      );
-      // 4 External Stainless Tie-Rods around each Airlift Column
-      for (let tr = 0; tr < 4; tr++) {
-        const ang = (tr / 4) * Math.PI * 2 + Math.PI * 0.25;
-        steelList.push(transformGeo(
-          new THREE.CylinderGeometry(0.007, 0.007, hCol, 6),
-          [cx + Math.cos(ang) * (rCol * 1.04), cy + Math.sin(ang) * (rCol * 1.04), zMid],
-          [Math.PI / 2, 0, 0]
-        ));
-      }
-
-      // Outer Borosilicate Glass Cylinder + Concentric Internal Airlift Draft Tube (Sirkülasyon Borusu)
-      glassList.push(
-        transformGeo(new THREE.CylinderGeometry(rCol, rCol, hCol - 0.065, 28, 1, true), [cx, cy, zMid], [Math.PI / 2, 0, 0]),
-        transformGeo(new THREE.CylinderGeometry(rCol * 0.48, rCol * 0.48, hCol - 0.16, 20, 1, true), [cx, cy, zMid - 0.01], [Math.PI / 2, 0, 0])
-      );
-
-      // Glowing Sintered Toroidal O2 Ring Sparger at the bottom of the draft tube + front status LED
-      spargerList.push(
-        transformGeo(new THREE.TorusGeometry(rCol * 0.38, 0.010, 8, 24), [cx, cy, zBot + 0.048]),
-        transformGeo(new THREE.BoxGeometry(0.032, 0.010, 0.010), [cx, cy - rCol * 1.06, zTop - 0.017])
-      );
-
-      // Oxygenated Liquid Broth Column inside the Airlift Bioreactor
-      airliftBrothList.push(
-        transformGeo(new THREE.CylinderGeometry(rCol * 0.96, rCol * 0.96, hCol - 0.10, 24), [cx, cy, zMid - 0.01], [Math.PI / 2, 0, 0])
-      );
-
-      // 3D Branching Rhizomorphic & Filamentous Mycelial Plume suspended inside the Airlift Bioreactor
-      airliftMyceliumList.push(buildAirliftMyceliumPlume(cx, cy, zMid - 0.01, rCol * 0.82, hCol - 0.15, 401 + col * 97));
-    }
-
-    // ============================================================================
-    // 3. UPPER TIER (z = 2.24..2.78): 10 SOLID-STATE SUBSTRATE MYCELIUM COLONIZATION JARS
-    // ============================================================================
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      // 2 Tall Cylindrical Borosilicate Solid-State Colonization Vessels per station (front y = -0.12, rear y = +0.26)
-      for (const jy of [-0.12, 0.26]) {
-        const jzBot = 2.242;
-        const jH = 0.44;
-        const jzMid = jzBot + jH * 0.5;
-        const jRad = 0.135;
-
-        // Outer Borosilicate Glass Jar Cylinder
-        glassList.push(transformGeo(new THREE.CylinderGeometry(jRad, jRad, jH, 22, 1, true), [cx, jy, jzMid], [Math.PI / 2, 0, 0]));
-        // Brushed Stainless Autoclave Lid with 0.22 µm white HEPA filter patch & red silicone septum port
-        steelList.push(
-          transformGeo(new THREE.CylinderGeometry(jRad * 1.04, jRad * 1.04, 0.028, 22), [cx, jy, jzBot + jH + 0.012], [Math.PI / 2, 0, 0]),
-          transformGeo(new THREE.CylinderGeometry(jRad * 1.03, jRad * 1.05, 0.016, 22), [cx, jy, jzBot + 0.008], [Math.PI / 2, 0, 0])
-        );
-        spargerList.push(transformGeo(new THREE.CylinderGeometry(0.028, 0.028, 0.008, 12), [cx - 0.035, jy, jzBot + jH + 0.028], [Math.PI / 2, 0, 0]));
-        shakerCapList.push(transformGeo(new THREE.CylinderGeometry(0.014, 0.014, 0.012, 10), [cx + 0.042, jy, jzBot + jH + 0.028], [Math.PI / 2, 0, 0]));
-
-        // Dark Lignocellulosic Oak/Grain Substrate Core inside the jar
-        const subH = jH * 0.84;
-        const subZ = jzBot + subH * 0.5 + 0.014;
-        substrateList.push(transformGeo(new THREE.CylinderGeometry(jRad * 0.91, jRad * 0.91, subH, 20), [cx, jy, subZ], [Math.PI / 2, 0, 0]));
-
-        // Progressive White Rhizomorphic Mycelium Colonization Shell hugging the substrate core
-        solidColonizationShells.push(transformGeo(new THREE.CylinderGeometry(jRad * 0.935, jRad * 0.935, subH, 22, 1, true), [cx, jy, subZ], [Math.PI / 2, 0, 0]));
-      }
-    }
-
-    // ============================================================================
-    // 4. DUAL-PATHWAY SANITARY TRANSFER MANIFOLDS (TO ZONE F FRUITING & ZONE G FERMENTER)
-    // ============================================================================
-    // Upper overhead O2 header manifold feeding the 5 Airlift columns
-    steelList.push(transformGeo(new THREE.CylinderGeometry(0.018, 0.018, 3.60, 8), [15.32, 0.05, 2.19], [0, 0, Math.PI / 2]));
-    // Pathway 1 (Solid-State -> Zone F Fruiting Chamber at x = 18.84)
-    const transferUpper = new THREE.TubeGeometry(
-      new THREE.CatmullRomCurve3([
-        new THREE.Vector3(17.12, 0.08, 2.48),
-        new THREE.Vector3(17.95, 0.08, 2.48),
-        new THREE.Vector3(18.35, 0.08, 1.98),
-        new THREE.Vector3(18.84, 0.08, 1.98)
-      ]),
-      18, 0.036, 8, false
-    );
-    // Pathway 2 (Liquid Airlift & Shaker -> Zone G Industrial Fermenter at x = 23.60)
-    const transferLower = new THREE.TubeGeometry(
-      new THREE.CatmullRomCurve3([
-        new THREE.Vector3(17.12, 0.15, 1.85),
-        new THREE.Vector3(18.10, 0.25, 1.45),
-        new THREE.Vector3(18.10, 0.85, 0.72),
-        new THREE.Vector3(23.60, 0.85, 0.72)
-      ]),
-      20, 0.042, 8, false
-    );
-    steelList.push(transferUpper, transferLower);
-
-    return {
-      steelGeo: mergeGeometriesFast(steelList),
-      darkGeo: mergeGeometriesFast(darkList),
-      glassGeo: mergeGeometriesFast(glassList),
-      spargerGeo: mergeGeometriesFast(spargerList),
-      substrateGeo: mergeGeometriesFast(substrateList),
-      solidColonizationGeo: mergeGeometriesFast(solidColonizationShells),
-      airliftBrothGeo: mergeGeometriesFast(airliftBrothList),
-      airliftMyceliumGeo: mergeGeometriesFast(airliftMyceliumList),
-      shakerSteelGeo: mergeGeometriesFast(shakerSteelList),
-      shakerGlassGeo: mergeGeometriesFast(shakerGlassList),
-      shakerBrothGeo: mergeGeometriesFast(shakerBrothList),
-      shakerCapGeo: mergeGeometriesFast(shakerCapList)
-    };
-  }, []);
-
-  // Suspended Stellate Mycelial Micro-Pellets inside the 5 Middle Airlift Columns & 10 Lower Shaker Flasks
-  const suspendedPellets = useMemo(() => {
-    const airliftCount = 5 * 55;
-    const shakerCount = 10 * 18;
-    const total = airliftCount + shakerCount;
-    const positions = new Float32Array(total * 3);
-    const orders = new Float32Array(total);
-    const sizes = new Float32Array(total);
-    const phases = new Float32Array(total);
-    let seed = 88219;
-    const rand = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
-
-    let idx = 0;
-    // 1. Airlift column stellate mycelial pellets
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      const cy = col === 2 ? 0.015 : 0.05;
-      const rMax = (col === 2 ? 0.252 : 0.215) * 0.82;
-      for (let k = 0; k < 55; k++) {
-        const ang = rand() * Math.PI * 2;
-        const r = Math.pow(rand(), 0.6) * rMax;
-        positions[idx * 3] = cx + Math.cos(ang) * r;
-        positions[idx * 3 + 1] = cy + Math.sin(ang) * r;
-        positions[idx * 3 + 2] = 1.64 + rand() * 0.44;
-        orders[idx] = (col * 0.12 + (k / 55) * 0.52);
-        sizes[idx] = 0.14 + rand() * 0.22;
-        phases[idx] = rand() * Math.PI * 2;
-        idx++;
-      }
-    }
-    // 2. Orbital shaker flask stellate mycelial pellets
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      for (const fy of [-0.13, 0.25]) {
-        for (let k = 0; k < 18; k++) {
-          const ang = rand() * Math.PI * 2;
-          const r = Math.sqrt(rand()) * 0.105;
-          positions[idx * 3] = cx + Math.cos(ang) * r;
-          positions[idx * 3 + 1] = fy + Math.sin(ang) * r;
-          positions[idx * 3 + 2] = 0.965 + rand() * 0.085;
-          orders[idx] = (col * 0.10 + (k / 18) * 0.45);
-          sizes[idx] = 0.12 + rand() * 0.16;
-          phases[idx] = rand() * Math.PI * 2;
-          idx++;
+      // Flexible translucent silicone O2 feed loops dropping from the overhead rail toward each of the 10 flasks on this shelf
+      for (let col = 0; col < 5; col++) {
+        const cx = COLS_X[col];
+        for (let rIdx = 0; rIdx < 2; rIdx++) {
+          const fy = FLASK_ROWS_Y[rIdx];
+          const fTopZ = SHELF_Z[tier] + (tier === 1 && col === 2 && rIdx === 0 ? 0.48 : 0.44);
+          const hoseCurve = new THREE.CatmullRomCurve3([
+            new THREE.Vector3(cx, 0.06, zRail),
+            new THREE.Vector3(cx + (rIdx === 0 ? -0.04 : 0.04), fy * 0.55, (zRail + fTopZ) * 0.5 + 0.03),
+            new THREE.Vector3(cx, fy, fTopZ)
+          ]);
+          staticSiliconeList.push(new THREE.TubeGeometry(hoseCurve, 8, 0.0045, 6, false));
+          // Stainless manifold check-valve boss on the rail
+          staticSteelList.push(transformGeo(new THREE.CylinderGeometry(0.008, 0.008, 0.024, 8), [cx, 0.06, zRail], [Math.PI / 2, 0, 0]));
         }
       }
     }
-    return { positions, orders, sizes, phases };
+
+    // Dual Sanitary Transfer Manifolds on the Right Side (connecting Zone E to Zone F Fruiting & Zone G Fermenter)
+    const transferUpper = new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(17.16, 0.06, 2.77),
+        new THREE.Vector3(17.95, 0.08, 2.52),
+        new THREE.Vector3(18.35, 0.08, 1.98),
+        new THREE.Vector3(18.84, 0.08, 1.98)
+      ]),
+      18, 0.034, 8, false
+    );
+    const transferLower = new THREE.TubeGeometry(
+      new THREE.CatmullRomCurve3([
+        new THREE.Vector3(17.16, 0.06, 2.11),
+        new THREE.Vector3(17.75, 0.12, 1.43),
+        new THREE.Vector3(18.10, 0.85, 0.72),
+        new THREE.Vector3(23.60, 0.85, 0.72)
+      ]),
+      22, 0.040, 8, false
+    );
+    staticSteelList.push(transferUpper, transferLower);
+
+    // ============================================================================
+    // 2. THREE ANIMATED ORBITAL SHAKER PLATFORMS & 30 DETAILED BOROSILICATE SHAKE FLASKS
+    // ============================================================================
+    const tiers = [0, 1, 2].map((tier) => {
+      const sz = SHELF_Z[tier];
+      const deckZ = sz + 0.042;
+      const tierSteel = [];
+      const tierDark = [];
+      const tierGlass = [];
+      const tierBroth = [];
+      const tierMycelium = [];
+      const tierCap = [];
+      const tierSparger = [];
+      const tierScale = [];
+
+      // Fixed Eccentric Counterweighted Motor Housings & EPDM Isolation Boots bolted to the static shelf (sz)
+      for (let col = 0; col < 5; col++) {
+        const cx = COLS_X[col];
+        for (const dy of [-0.16, 0.28]) {
+          staticDarkList.push(transformGeo(new THREE.CylinderGeometry(0.058, 0.068, 0.026, 12), [cx, dy, sz + 0.013], [Math.PI / 2, 0, 0]));
+          staticSteelList.push(transformGeo(new THREE.CylinderGeometry(0.022, 0.022, 0.020, 10), [cx, dy, sz + 0.030], [Math.PI / 2, 0, 0]));
+        }
+      }
+
+      // Full-Width Anodized Brushed-Steel Orbital Shaker Tray Platform + Front/Rear Retaining Lip Rails
+      tierSteel.push(
+        transformGeo(new THREE.BoxGeometry(3.88, 0.80, 0.020), [15.32, 0.06, deckZ]),
+        transformGeo(new THREE.BoxGeometry(3.90, 0.022, 0.038), [15.32, -0.34, deckZ + 0.012]),
+        transformGeo(new THREE.BoxGeometry(3.90, 0.022, 0.038), [15.32, 0.46, deckZ + 0.012])
+      );
+      // Dark Anti-Slip Neoprene Shaker Mat + Perforation Grid Strips + Front Digital Telemetry Bar
+      tierDark.push(
+        transformGeo(new THREE.BoxGeometry(3.80, 0.74, 0.006), [15.32, 0.06, deckZ + 0.011]),
+        transformGeo(new THREE.BoxGeometry(0.95, 0.016, 0.030), [15.32, -0.352, deckZ + 0.012])
+      );
+      // Glowing Cyan/Emerald RPM & O2 Telemetry Readout LEDs on the front edge of the shaker tray
+      for (let led = -2; led <= 2; led++) {
+        tierSparger.push(transformGeo(new THREE.BoxGeometry(0.11, 0.008, 0.014), [15.32 + led * 0.18, -0.360, deckZ + 0.012]));
+      }
+
+      // 10 Borosilicate Shake Flasks per Shelf (5 columns x 2 rows: Front = Wide Fernbach, Rear = Baffled Erlenmeyer)
+      for (let col = 0; col < 5; col++) {
+        const cx = COLS_X[col];
+        for (let rIdx = 0; rIdx < 2; rIdx++) {
+          const fy = FLASK_ROWS_Y[rIdx];
+          const fz = deckZ + 0.014;
+          // Hero Fernbach Flask on Middle Tier (tier === 1, col === 2, front row) is slightly larger so Scene 07 macro zoom
+          // at [15.32, -0.235, 1.665] enters right through its front glass wall into the swirling mycelial culture!
+          const isHero = tier === 1 && col === 2 && rIdx === 0;
+          const isFrontFernbach = rIdx === 0;
+
+          const rBot = isHero ? 0.175 : (isFrontFernbach ? 0.155 : 0.138);
+          const rNeck = isHero ? 0.056 : (isFrontFernbach ? 0.050 : 0.045);
+          const hCone = isHero ? 0.275 : (isFrontFernbach ? 0.245 : 0.265);
+          const hNeck = isHero ? 0.095 : 0.088;
+          const hBroth = isHero ? 0.135 : (isFrontFernbach ? 0.115 : 0.122);
+          const rBrothTop = THREE.MathUtils.lerp(rBot * 0.96, rNeck * 0.96, hBroth / hCone);
+
+          // 1. 6-Petal Stainless Spring-Wire Flask Clamp Bolted to the Shaker Deck
+          tierSteel.push(
+            transformGeo(new THREE.CylinderGeometry(rBot * 1.03, rBot * 1.07, 0.022, 18, 1, true), [cx, fy, fz + 0.012], [Math.PI / 2, 0, 0]),
+            transformGeo(new THREE.TorusGeometry(rBot * 1.04, 0.0045, 6, 18), [cx, fy, fz + 0.026])
+          );
+          for (let p = 0; p < 6; p++) {
+            const pa = (p / 6) * Math.PI * 2;
+            tierSteel.push(transformGeo(
+              new THREE.BoxGeometry(0.014, 0.005, 0.052),
+              [cx + Math.cos(pa) * (rBot * 1.01), fy + Math.sin(pa) * (rBot * 1.01), fz + 0.026],
+              [0, 0, pa]
+            ));
+          }
+
+          // 2. Borosilicate Flask Rounded Base + Conical Body + Cylindrical Neck + Flared Lip Rim
+          tierGlass.push(
+            transformGeo(new THREE.CylinderGeometry(rNeck, rBot, hCone, 24, 1, true), [cx, fy, fz + hCone * 0.5], [Math.PI / 2, 0, 0]),
+            transformGeo(new THREE.CylinderGeometry(rNeck * 0.96, rNeck, hNeck, 18, 1, true), [cx, fy, fz + hCone + hNeck * 0.5], [Math.PI / 2, 0, 0]),
+            transformGeo(new THREE.TorusGeometry(rNeck * 1.02, 0.005, 6, 18), [cx, fy, fz + hCone + hNeck])
+          );
+
+          // 4 Vertical Indent Baffles on the Rear Row Baffled Erlenmeyer Flasks (breaks vortex & boosts O2 kLa!)
+          if (!isFrontFernbach) {
+            for (let b = 0; b < 4; b++) {
+              const ba = (b / 4) * Math.PI * 2 + Math.PI * 0.25;
+              const rMid = (rBot + rNeck) * 0.5 * 0.93;
+              tierGlass.push(transformGeo(
+                new THREE.BoxGeometry(0.008, 0.022, hCone * 0.62),
+                [cx + Math.cos(ba) * rMid, fy + Math.sin(ba) * rMid, fz + hCone * 0.44],
+                [0, 0, ba]
+              ));
+            }
+          }
+
+          // 3. White Frosted Volume Graduation Scale Ticks (500 mL, 1000 mL, 1500 mL) & ID Patch on Front Wall
+          for (let tick = 1; tick <= 3; tick++) {
+            const uTick = 0.22 + tick * 0.18;
+            const zTick = fz + hCone * uTick;
+            const rTick = THREE.MathUtils.lerp(rBot, rNeck, uTick) + 0.002;
+            tierScale.push(transformGeo(
+              new THREE.CylinderGeometry(rTick, rTick, 0.0035, 12, 1, true, -Math.PI * 0.68, Math.PI * 0.36),
+              [cx, fy, zTick],
+              [Math.PI / 2, 0, 0]
+            ));
+          }
+          // Rectangular Frosted Sample Label Patch
+          const uPatch = 0.52;
+          const rPatch = THREE.MathUtils.lerp(rBot, rNeck, uPatch) + 0.0025;
+          tierScale.push(transformGeo(
+            new THREE.CylinderGeometry(rPatch, rPatch, 0.028, 10, 1, true, -Math.PI * 0.38, Math.PI * 0.22),
+            [cx, fy, fz + hCone * uPatch],
+            [Math.PI / 2, 0, 0]
+          ));
+
+          // 4. Sterile Blue GL45 Breathable Membrane Screw Cap + 0.22 µm White PTFE Vent Ring + Internal O2 Sparger Tube
+          const zCap = fz + hCone + hNeck + 0.016;
+          tierCap.push(transformGeo(new THREE.CylinderGeometry(rNeck * 1.12, rNeck * 1.08, 0.046, 18), [cx, fy, zCap], [Math.PI / 2, 0, 0]));
+          tierScale.push(transformGeo(new THREE.CylinderGeometry(rNeck * 0.72, rNeck * 0.72, 0.008, 14), [cx, fy, zCap + 0.025], [Math.PI / 2, 0, 0]));
+          // Stainless O2 Sparging Capillary descending from the cap down into the broth + Glowing Sintered Sparger Stone
+          const capHeight = hCone + hNeck - 0.015;
+          tierSteel.push(transformGeo(new THREE.CylinderGeometry(0.0035, 0.0035, capHeight, 6), [cx, fy, fz + capHeight * 0.5 + 0.025], [Math.PI / 2, 0, 0]));
+          tierSparger.push(
+            transformGeo(new THREE.CylinderGeometry(0.012, 0.012, 0.022, 10), [cx, fy, fz + 0.026], [Math.PI / 2, 0, 0]),
+            transformGeo(new THREE.TorusGeometry(rBot * 0.34, 0.006, 6, 16), [cx, fy, fz + 0.018])
+          );
+
+          // 5. Swirling Oxygenated Liquid Culture Broth + Concave Centrifugal Meniscus Torus
+          tierBroth.push(
+            transformGeo(new THREE.CylinderGeometry(rBrothTop, rBot * 0.96, hBroth, 22), [cx, fy, fz + hBroth * 0.5 + 0.006], [Math.PI / 2, 0, 0]),
+            transformGeo(new THREE.TorusGeometry(rBrothTop * 0.76, rBrothTop * 0.22, 8, 22), [cx, fy, fz + hBroth + 0.004], [0.06, 0, 0], [1, 1, 0.32])
+          );
+
+          // 6. 3D Swirling Branching Filamentous Mycelium & Biomass Flocs inside every Flask
+          tierMycelium.push(buildFlaskSwirlingMycelium(cx, fy, fz + 0.006, rBot * 0.88, hBroth, 701 + tier * 200 + col * 31 + rIdx * 13));
+        }
+      }
+
+      return {
+        steelGeo: mergeGeometriesFast(tierSteel),
+        darkGeo: mergeGeometriesFast(tierDark),
+        glassGeo: mergeGeometriesFast(tierGlass),
+        brothGeo: mergeGeometriesFast(tierBroth),
+        myceliumGeo: mergeGeometriesFast(tierMycelium),
+        capGeo: mergeGeometriesFast(tierCap),
+        spargerGeo: mergeGeometriesFast(tierSparger),
+        scaleGeo: mergeGeometriesFast(tierScale)
+      };
+    });
+
+    return {
+      staticSteelGeo: mergeGeometriesFast(staticSteelList),
+      staticDarkGeo: mergeGeometriesFast(staticDarkList),
+      staticGlassGeo: mergeGeometriesFast(staticGlassList),
+      staticSpargerGeo: mergeGeometriesFast(staticSpargerList),
+      staticSiliconeGeo: mergeGeometriesFast(staticSiliconeList),
+      tiers
+    };
   }, []);
 
-  // Rising 3D oxygen bubbles inside the 5 Airlift Bioreactor Columns
-  const o2Bubbles = useMemo(() => {
-    const perCol = 32;
-    const count = 5 * perCol;
-    const pos = new Float32Array(count * 3);
-    const baseZ = new Float32Array(count);
-    const speeds = new Float32Array(count);
-    let seed = 55109;
+  // Per-Tier Suspended Stellate Mycelial Micro-Pellets & Rising O2 Sparger Micro-Bubbles (so they orbit with each shaker deck!)
+  const tierParticles = useMemo(() => {
+    let seed = 88219;
     const rand = () => { seed = (1664525 * seed + 1013904223) >>> 0; return seed / 4294967296; };
 
-    let idx = 0;
-    for (let col = 0; col < 5; col++) {
-      const cx = COLS_X[col];
-      const cy = col === 2 ? 0.015 : 0.05;
-      const rDraft = (col === 2 ? 0.252 : 0.215) * 0.45;
-      for (let k = 0; k < perCol; k++) {
-        const ang = rand() * Math.PI * 2;
-        const r = Math.sqrt(rand()) * rDraft;
-        pos[idx * 3] = cx + Math.cos(ang) * r;
-        pos[idx * 3 + 1] = cy + Math.sin(ang) * r;
-        const z0 = 1.63;
-        baseZ[idx] = z0;
-        pos[idx * 3 + 2] = z0 + rand() * 0.46;
-        speeds[idx] = 0.35 + rand() * 0.65;
-        idx++;
+    return [0, 1, 2].map((tier) => {
+      const fz = SHELF_Z[tier] + 0.056;
+      const pelletsPerFlask = 22;
+      const pelletCount = 10 * pelletsPerFlask;
+      const pPos = new Float32Array(pelletCount * 3);
+      const pOrd = new Float32Array(pelletCount);
+      const pSize = new Float32Array(pelletCount);
+      const pPhase = new Float32Array(pelletCount);
+
+      const bubblesPerFlask = 14;
+      const bubbleCount = 10 * bubblesPerFlask;
+      const bPos = new Float32Array(bubbleCount * 3);
+      const bBaseZ = new Float32Array(bubbleCount);
+      const bSpeeds = new Float32Array(bubbleCount);
+
+      let pIdx = 0;
+      let bIdx = 0;
+      for (let col = 0; col < 5; col++) {
+        const cx = COLS_X[col];
+        for (let rIdx = 0; rIdx < 2; rIdx++) {
+          const fy = FLASK_ROWS_Y[rIdx];
+          const isHero = tier === 1 && col === 2 && rIdx === 0;
+          const rMax = isHero ? 0.142 : (rIdx === 0 ? 0.125 : 0.110);
+          const hMax = isHero ? 0.120 : 0.102;
+
+          for (let k = 0; k < pelletsPerFlask; k++) {
+            const ang = rand() * Math.PI * 2;
+            const r = Math.pow(rand(), 0.58) * rMax;
+            pPos[pIdx * 3] = cx + Math.cos(ang) * r;
+            pPos[pIdx * 3 + 1] = fy + Math.sin(ang) * r;
+            pPos[pIdx * 3 + 2] = fz + 0.012 + rand() * hMax;
+            pOrd[pIdx] = (col * 0.10 + rIdx * 0.08 + (k / pelletsPerFlask) * 0.48);
+            pSize[pIdx] = 0.13 + rand() * 0.18;
+            pPhase[pIdx] = rand() * Math.PI * 2;
+            pIdx++;
+          }
+
+          for (let b = 0; b < bubblesPerFlask; b++) {
+            const ang = rand() * Math.PI * 2;
+            const r = Math.sqrt(rand()) * (rMax * 0.65);
+            bPos[bIdx * 3] = cx + Math.cos(ang) * r;
+            bPos[bIdx * 3 + 1] = fy + Math.sin(ang) * r;
+            const z0 = fz + 0.015;
+            bBaseZ[bIdx] = z0;
+            bPos[bIdx * 3 + 2] = z0 + rand() * hMax;
+            bSpeeds[bIdx] = 0.45 + rand() * 0.65;
+            bIdx++;
+          }
+        }
       }
-    }
-    return { pos, baseZ, speeds, count };
+      return { pPos, pOrd, pSize, pPhase, bPos, bBaseZ, bSpeeds, bubbleCount };
+    });
   }, []);
 
-  useFrame(() => {
+  useFrame((state) => {
     const p = progressRef.current;
-    if (p < 0.36) return;
-    if (Math.abs(p - lastP.current) < 0.00025) return;
-    lastP.current = p;
+    if (p < 0.35 || p > 0.72) return;
 
-    const growth = p > 0.92 ? 1.0 : incubEase(.455, .540, p);
-    airliftBrothMat.uniforms.uTime.value = p * 38.0;
-    solidColonizationMat.uniforms.uGrowth.value = growth;
-    pelletMat.uniforms.uGrowth.value = Math.max(0.08, growth);
-
-    // 1. Orbital Shaker circular motion on Lower Tier (Row 0)
-    if (shakerGroupRef.current) {
-      const orbitAngle = p * 220.0;
-      shakerGroupRef.current.position.x = Math.cos(orbitAngle) * 0.012;
-      shakerGroupRef.current.position.y = Math.sin(orbitAngle) * 0.012;
+    // Keep orbital shakers visibly orbiting & sloshing even when the user pauses scrolling inside Scene 06!
+    if (p >= 0.38 && p <= 0.64) {
+      state.invalidate();
     }
 
-    // 2. Buoyant vertical breathing of the 3D Rhizomorphic Mycelial Networks inside the 5 Airlift Columns (Row 1)
-    if (airliftMyceliumRef.current) {
-      airliftMyceliumRef.current.visible = growth > 0.02;
-      if (airliftMyceliumRef.current.visible) {
-        const zBob = Math.sin(p * 115.0) * 0.008;
-        airliftMyceliumRef.current.position.z = zBob;
-      }
-    }
+    const t = state.clock.elapsedTime;
+    const growth = p > 0.92 ? 1.0 : Math.max(0.18, incubEase(.445, .538, p));
+    pelletMat.uniforms.uGrowth.value = growth;
 
-    // 3. Rising Oxygen Bubble Stream inside the 5 Airlift Draft Tubes
-    if (bubblePointsRef.current && p <= 0.68) {
-      const attr = bubblePointsRef.current.geometry.attributes.position;
-      for (let i = 0; i < o2Bubbles.count; i++) {
-        const z0 = o2Bubbles.baseZ[i];
-        const zRel = ((i * 0.037 + p * 14.0 * o2Bubbles.speeds[i]) % 1.0) * 0.46;
-        attr.setZ(i, z0 + zRel);
+    // Continuous 180 RPM Orbital Shaker Agitation across all 3 Shelves (with 120° phase offset between shelves for dynamic balance)
+    const baseOmega = t * 5.2 + p * 160.0;
+    const orbitRadius = 0.026;
+
+    for (let tier = 0; tier < 3; tier++) {
+      const theta = baseOmega + tier * 2.094395;
+      const dx = Math.cos(theta) * orbitRadius;
+      const dy = Math.sin(theta) * orbitRadius;
+
+      const deck = tierDeckRefs.current[tier];
+      if (deck) {
+        deck.position.x = dx;
+        deck.position.y = dy;
       }
-      attr.needsUpdate = true;
+
+      const brothMat = shakerBrothMats[tier];
+      if (brothMat) {
+        brothMat.uniforms.uTime.value = t * 1.4 + p * 35.0 + tier * 1.7;
+        brothMat.uniforms.uOrbitAngle.value = theta;
+      }
+
+      // Dynamic bobbing & centrifugal wave motion of the 3D filamentous mycelium inside the flasks
+      const myc = tierMyceliumRefs.current[tier];
+      if (myc) {
+        myc.position.x = -Math.sin(theta) * 0.006;
+        myc.position.y = Math.cos(theta) * 0.006;
+        myc.position.z = Math.sin(theta * 2.0) * 0.004;
+      }
+
+      // Rising O2 Micro-Bubbles inside the 10 flasks of this shaker tier
+      const bubbles = tierBubbleRefs.current[tier];
+      if (bubbles) {
+        const attr = bubbles.geometry.attributes.position;
+        const bp = tierParticles[tier];
+        for (let i = 0; i < bp.bubbleCount; i++) {
+          const z0 = bp.bBaseZ[i];
+          const zRel = ((i * 0.043 + (t * 0.55 + p * 12.0) * bp.bSpeeds[i]) % 1.0) * 0.105;
+          attr.setZ(i, z0 + zRel);
+        }
+        attr.needsUpdate = true;
+      }
     }
   });
 
   return (
     <group name="ZONE_E_HIGH_DETAIL_INCUBATOR">
-      {/* Static Incubator Frame, Airlift Flanges, Tie-Rods, Jar Lids, Rotameters & Dual Transfer Manifolds */}
-      <mesh geometry={batched.steelGeo} material={brushedSteelMat} />
-      <mesh geometry={batched.darkGeo} material={darkIndustrialMat} />
-      <mesh geometry={batched.spargerGeo} material={spargerGlowMat} />
+      {/* Static Climate-Controlled Chamber Frame, Rear Air-Duct Plenums, O2 Rotameters, Overhead O2 Rails & Transfer Manifolds */}
+      <mesh geometry={batched.staticSteelGeo} material={brushedSteelMat} />
+      <mesh geometry={batched.staticDarkGeo} material={darkIndustrialMat} />
+      <mesh geometry={batched.staticSpargerGeo} material={spargerGlowMat} />
+      <mesh geometry={batched.staticSiliconeGeo} material={siliconeTubeMat} />
+      <mesh geometry={batched.staticGlassGeo} material={borosilicateGlassMat} />
 
-      {/* Upper Tier: 10 Solid-State Lignocellulosic Substrate Cores + Progressive Climbing White Rhizomorphic Mycelium */}
-      <mesh geometry={batched.substrateGeo} material={substrateCoreMat} />
-      <mesh geometry={batched.solidColonizationGeo} material={solidColonizationMat} />
+      {/* 3 Synchronized Orbital Shaker Platforms (Lower z=0.90, Middle z=1.58, Upper z=2.24) — 30 Aerated Flasks Total */}
+      {batched.tiers.map((tGeo, tier) => (
+        <group key={tier} ref={(el) => { tierDeckRefs.current[tier] = el; }}>
+          {/* Shaker Tray Deck, 6-Petal Spring Clamps & Internal Stainless O2 Capillaries */}
+          <mesh geometry={tGeo.steelGeo} material={brushedSteelMat} />
+          <mesh geometry={tGeo.darkGeo} material={darkIndustrialMat} />
+          <mesh geometry={tGeo.capGeo} material={blueCapMat} />
+          <mesh geometry={tGeo.spargerGeo} material={spargerGlowMat} />
 
-      {/* Middle Tier: 5 Cylindrical Airlift Bioreactors — 3D Branching Rhizomorphic Mycelium + Oxygenated Broth */}
-      <mesh ref={airliftMyceliumRef} geometry={batched.airliftMyceliumGeo} material={mycelialCordMat} />
-      <mesh geometry={batched.airliftBrothGeo} material={airliftBrothMat} />
+          {/* 3D Swirling Branching Filamentous Mycelium & Biomass Flocs inside all 10 Flasks */}
+          <mesh
+            ref={(el) => { tierMyceliumRefs.current[tier] = el; }}
+            geometry={tGeo.myceliumGeo}
+            material={mycelialCordMat}
+          />
 
-      {/* Lower Tier: Animated Orbital Shaker Platform with 10 Borosilicate Fernbach / Erlenmeyer Seed Flasks */}
-      <group ref={shakerGroupRef}>
-        <mesh geometry={batched.shakerSteelGeo} material={brushedSteelMat} />
-        <mesh geometry={batched.shakerCapGeo} material={blueCapMat} />
-        <mesh geometry={batched.shakerBrothGeo} material={shakerBrothMat} />
-        <mesh geometry={batched.shakerGlassGeo} material={borosilicateGlassMat} />
-      </group>
+          {/* Fluffy Stellate Mycelial Micro-Pellets swirling inside the 10 Flasks */}
+          <points
+            ref={(el) => { tierPelletRefs.current[tier] = el; }}
+            material={pelletMat}
+            frustumCulled={false}
+          >
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[tierParticles[tier].pPos, 3]} />
+              <bufferAttribute attach="attributes-aOrder" args={[tierParticles[tier].pOrd, 1]} />
+              <bufferAttribute attach="attributes-aSize" args={[tierParticles[tier].pSize, 1]} />
+              <bufferAttribute attach="attributes-aPhase" args={[tierParticles[tier].pPhase, 1]} />
+            </bufferGeometry>
+          </points>
 
-      {/* Suspended Fluffy Stellate Mycelial Micro-Pellets inside Airlift Columns & Shaker Flasks */}
-      <points material={pelletMat} frustumCulled={false}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[suspendedPellets.positions, 3]} />
-          <bufferAttribute attach="attributes-aOrder" args={[suspendedPellets.orders, 1]} />
-          <bufferAttribute attach="attributes-aSize" args={[suspendedPellets.sizes, 1]} />
-          <bufferAttribute attach="attributes-aPhase" args={[suspendedPellets.phases, 1]} />
-        </bufferGeometry>
-      </points>
+          {/* Rising Specular O2 Micro-Bubbles from the Sintered Sparger Stones inside each Flask */}
+          <points
+            ref={(el) => { tierBubbleRefs.current[tier] = el; }}
+            frustumCulled={false}
+          >
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[tierParticles[tier].bPos, 3]} />
+            </bufferGeometry>
+            <pointsMaterial color="#dcfaec" size={0.013} transparent opacity={0.86} depthWrite={false} sizeAttenuation />
+          </points>
 
-      {/* Rising Specular O2 Micro-Bubble Streams from the Bottom Ring Spargers */}
-      <points ref={bubblePointsRef} frustumCulled={false}>
-        <bufferGeometry>
-          <bufferAttribute attach="attributes-position" args={[o2Bubbles.pos, 3]} />
-        </bufferGeometry>
-        <pointsMaterial color="#d8fceb" size={0.015} transparent opacity={0.85} depthWrite={false} sizeAttenuation />
-      </points>
+          {/* Sloshing Oxygenated Liquid Broth with Centrifugal Meniscus Wave */}
+          <mesh
+            ref={(el) => { tierBrothRefs.current[tier] = el; }}
+            geometry={tGeo.brothGeo}
+            material={shakerBrothMats[tier]}
+          />
 
-      {/* Outer Borosilicate Glass Cylinders of All 5 Airlift Bioreactors, Draft Tubes & 10 Solid-State Jars */}
-      <mesh geometry={batched.glassGeo} material={borosilicateGlassMat} />
+          {/* Frosted White Graduation Scales (mL), Sample ID Patches & 0.22 µm PTFE Vent Membranes */}
+          <mesh geometry={tGeo.scaleGeo} material={frostedScaleMat} />
+
+          {/* Outer Borosilicate Glass Bodies of the 10 Fernbach & Baffled Erlenmeyer Flasks */}
+          <mesh geometry={tGeo.glassGeo} material={borosilicateGlassMat} />
+        </group>
+      ))}
     </group>
   );
 }
