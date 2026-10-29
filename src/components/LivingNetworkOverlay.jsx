@@ -2,7 +2,7 @@ import React from 'react';
 const STAGES=[
   ['REFERENCE CULTURE','The same centrally selected culture container remains fixed inside the incubator.'],
   ['OPTICAL APPROACH','The camera approaches the container without changing its physical scale.'],
-  ['OBSERVATION WINDOW','The culture is shown through a controlled optical cutaway of its transparent enclosure.'],
+  ['INSIDE THE FLASK','The camera passes through the glass into the swirling liquid culture.'],
   ['FIRST FILAMENTS','Fine hyphae appear from the established mycelium within the same culture.'],
   ['BRANCHING','New branches extend from the existing filament network.'],
   ['LIVING NETWORK','Filaments form a dense, irregular mesh. This is a visual time-lapse, not real experimental footage.'],

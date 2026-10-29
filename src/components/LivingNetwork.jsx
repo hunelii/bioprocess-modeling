@@ -139,10 +139,6 @@ export function LivingNetwork({ progressRef }) {
   // Optical macro sight-window ring & micro-bubbles suspended inside E_culture_container_2_1
   const macroFrameAndBubbles = useMemo(() => {
     const rand = randomFactory(314159);
-    const frameGeo = mergeGeometriesFast([
-      transformGeo(new THREE.TorusGeometry(0.165, 0.0045, 10, 48), [15.32, -0.252, 1.665], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.TorusGeometry(0.174, 0.0022, 8, 48), [15.32, -0.255, 1.665], [Math.PI / 2, 0, 0])
-    ]);
     const bubbleGeos = [];
     const sphere = new THREE.SphereGeometry(0.0022, 6, 5);
     for (let i = 0; i < 65; i++) {
@@ -166,7 +162,6 @@ export function LivingNetwork({ progressRef }) {
     }
 
     return {
-      frameGeo,
       bubblesGeo: mergeGeometriesFast(bubbleGeos),
       spitzenGeo: mergeGeometriesFast(spitzenGeos)
     };
@@ -195,12 +190,6 @@ export function LivingNetwork({ progressRef }) {
     roughness: 0.65,
     transparent: true,
     opacity: 0.86
-  }), []);
-
-  const lensRingMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#9db5a9',
-    metalness: 0.82,
-    roughness: 0.24
   }), []);
 
   const microBubbleMat = useMemo(() => new THREE.MeshStandardMaterial({
@@ -250,15 +239,6 @@ export function LivingNetwork({ progressRef }) {
 
   return (
     <group ref={groupRef} name="SCENE07_REFERENCE_CONTAINER_MICROSCOPY" visible={false}>
-      {/* Optical Macro Viewport Ring mounted on the front glass of Central Incubator Tank E_culture_container_2_1 */}
-      <mesh geometry={macroFrameAndBubbles.frameGeo} material={lensRingMat} />
-
-      {/* Translucent Oxygenated Liquid Backlight Window inside the Central Incubator Tank */}
-      <mesh position={[15.32, -0.222, 1.665]} rotation={[Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.165, 32]} />
-        <meshBasicMaterial color="#123024" transparent opacity={0.52} depthWrite={false} />
-      </mesh>
-
       {/* Suspended Gossamer Rhizomorphic Mycelium Core in Liquid Culture */}
       <mesh position={[15.32, -0.238, 1.665]} rotation={[Math.PI / 2, 0, 0]} scale={[0.16, 0.16, 1]} material={webMat}>
         <circleGeometry args={[1, 32]} />
