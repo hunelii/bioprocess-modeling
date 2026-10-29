@@ -2,6 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
+import { MUSHROOM_SPECIES, buildSpeciesGeometry, createSpeciesLabelAtlas } from '../data/mushroomSpecies.js';
 
 // Art-directable biological proxies: all assets anchored to the existing Zone F trays.
 // Realistic lateral spathulate / oyster-shell Pleurotus ostreatus fruiting bouquets with primordia-to-cap unfurling.
@@ -282,69 +283,200 @@ export function DetailedOysterMushrooms({ progressRef }) {
   const rootGroupRef = useRef();
   const groups = useRef([]);
   const capRefs = useRef([]);
+  const stemRefs = useRef([]);
   const lastP = useRef(-1);
+
+  // 12 unique cultivated species mapped across 24 positions (2 positions per species: primary front-left & partner offset)
+  const speciesData = useMemo(() => {
+    return MUSHROOM_SPECIES.map((spec) => {
+      const geos = buildSpeciesGeometry(spec.key);
+      const mats = {};
+      const mCfg = spec.mats;
+
+      // Base substrate / block / bag / bottle
+      mats.base = new THREE.MeshStandardMaterial({
+        color: mCfg.base.color,
+        roughness: mCfg.base.rough ?? 0.8,
+        metalness: mCfg.base.metal ?? 0.05
+      });
+
+      if (geos.base2) {
+        if (mCfg.base2?.glass) {
+          mats.base2 = createFastGlassMaterial({
+            color: mCfg.base2.color,
+            opacity: mCfg.base2.opacity,
+            roughness: 0.1
+          });
+        } else {
+          mats.base2 = new THREE.MeshStandardMaterial({
+            color: mCfg.base2?.color || '#333333',
+            roughness: mCfg.base2?.rough ?? 0.9
+          });
+        }
+      }
+
+      if (geos.accent) {
+        mats.accent = new THREE.MeshStandardMaterial({
+          color: mCfg.accent?.color || '#ffffff',
+          roughness: mCfg.accent?.rough ?? 0.8
+        });
+      }
+
+      mats.stem = new THREE.MeshStandardMaterial({
+        color: mCfg.stem.color,
+        roughness: mCfg.stem.rough ?? 0.7,
+        metalness: mCfg.stem.metal ?? 0.02,
+        side: THREE.DoubleSide
+      });
+
+      mats.cap = new THREE.MeshStandardMaterial({
+        color: mCfg.cap.color,
+        roughness: mCfg.cap.rough ?? 0.5,
+        metalness: mCfg.cap.metal ?? 0.04,
+        side: THREE.DoubleSide
+      });
+
+      if (geos.detail) {
+        mats.detail = new THREE.MeshStandardMaterial({
+          color: mCfg.detail?.color || mCfg.cap.color,
+          roughness: mCfg.detail?.rough ?? 0.6,
+          metalness: mCfg.detail?.metal ?? 0.02,
+          transparent: !!mCfg.detail?.opacity,
+          opacity: mCfg.detail?.opacity ?? 1.0,
+          side: THREE.DoubleSide
+        });
+      }
+
+      return { spec, geos, mats };
+    });
+  }, []);
+
+  // Scientific identification plant tag label atlas & geometries
+  const labelData = useMemo(() => {
+    const { texture, cols, rows } = createSpeciesLabelAtlas();
+    const mat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+    const tagBaseMat = new THREE.MeshStandardMaterial({ color: '#55665c', metalness: 0.8, roughness: 0.3 });
+    const tagStakeGeo = transformGeo(new THREE.CylinderGeometry(0.002, 0.002, 0.075, 6), [0, 0, 0.038], [Math.PI / 2, 0, 0]);
+
+    // Build UV-mapped tag cards for each species index 0..11
+    const tagCards = MUSHROOM_SPECIES.map((_, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const u0 = col / cols, u1 = (col + 1) / cols;
+      const v1 = 1 - row / rows, v0 = 1 - (row + 1) / rows;
+      const plane = new THREE.PlaneGeometry(0.082, 0.032);
+      const uv = plane.attributes.uv;
+      uv.setXY(0, u0, v1);
+      uv.setXY(1, u1, v1);
+      uv.setXY(2, u0, v0);
+      uv.setXY(3, u1, v0);
+      uv.needsUpdate = true;
+      // Position tag angled up toward camera
+      return transformGeo(plane, [0, -0.095, 0.075], [-0.55, 0, 0]);
+    });
+
+    return { mat, tagBaseMat, tagStakeGeo, tagCards };
+  }, []);
+
   const items = useMemo(() => {
     const result = [];
     let idx = 0;
     for(let row=0;row<3;row++)for(let col=0;col<4;col++)for(let pair=0;pair<2;pair++){
+      const specIdx = row * 4 + col;
+      const isPair = pair === 1;
       const jitter = (Math.sin(idx * 13.71) * .5 + .5);
       result.push({
         row,
         col,
         pair,
         idx,
+        specIdx,
         x: X[col] + (pair === 0 ? -.085 : .09),
         y: Y[col] + (pair === 0 ? .055 : -.07),
         z: Z[row] - .055,
-        rotZ: (pair === 0 ? -0.18 : 0.22) + (jitter - 0.5) * 0.35,
-        radiusScale: (.155 + .048 * jitter) / R_REF
+        rotZ: (pair === 0 ? -0.15 : 0.20) + (jitter - 0.5) * 0.25,
+        scale: isPair ? 0.88 + jitter * 0.15 : 1.05 + jitter * 0.12
       });
       idx++;
     }
     return result;
   }, []);
 
-  const capMaterials = useMemo(() => capColors.map(c => new THREE.MeshStandardMaterial({
-    color: c,
-    emissive: '#221912',
-    emissiveIntensity: 0.08,
-    roughness: 0.52,
-    metalness: 0.03,
-    envMapIntensity: 0.85,
-    side: THREE.DoubleSide
-  })), []);
-
   useFrame(() => {
     const p = progressRef.current;
     const active = p >= .695;
     if (rootGroupRef.current) rootGroupRef.current.visible = active;
     if (!active) return;
-    // Skip redundant updates when progress hasn't changed or when mushrooms are already 100% mature (p > 0.785)
     if (Math.abs(p - lastP.current) < 0.0004 || (p > 0.785 && lastP.current > 0.785)) return;
     lastP.current = p;
 
     items.forEach((item, i) => {
       const actor = groups.current[i];
       if (!actor) return;
+      const spData = speciesData[item.specIdx];
+      const animType = spData?.spec?.anim || 'shelf';
       const stagger = .0017 * item.col + .002 * item.row + .0012 * item.pair;
-      // Stage 1: Primordia emergence (.702 -> .730)
+
+      // Biological 3-stage morphogenesis:
+      // Stage 1: Primordia emergence & pinning (0.702 -> 0.730)
       const prim = p > 0.92 ? 1.0 : smooth(.702 + stagger, .730 + stagger, p);
-      // Stage 2: Oyster-shell cap unfurling & lateral shelf expansion (.724 -> .772)
-      const unfurl = p > 0.92 ? 1.0 : smooth(.724 + stagger, .772 + stagger, p);
+      // Stage 2: Stipe elongation / stroma emergence (0.718 -> 0.752)
+      const elongate = p > 0.92 ? 1.0 : smooth(.718 + stagger, .752 + stagger, p);
+      // Stage 3: Cap expansion, margin unrolling & spine cascading (0.735 -> 0.774)
+      const expand = p > 0.92 ? 1.0 : smooth(.735 + stagger, .774 + stagger, p);
+
       actor.visible = p >= .695;
 
-      // Stems and primordia grow upward early, while caps unfurl outward horizontally
-      const baseScale = (.06 + prim * .28 + unfurl * .66) * item.radiusScale;
-      actor.scale.set(
-        Math.max(.001, baseScale * (0.55 + 0.45 * unfurl)),
-        Math.max(.001, baseScale * (0.55 + 0.45 * unfurl)),
-        Math.max(.001, baseScale * (0.75 + 0.25 * prim))
-      );
+      const stemMesh = stemRefs.current[i];
+      const capMesh = capRefs.current[i];
 
-      // Caps unfurl after initial primordia pinning
-      if (capRefs.current[i]) {
-        const capExpand = Math.max(0.12, 0.15 * prim + 0.85 * Math.pow(unfurl, 0.85));
-        capRefs.current[i].scale.set(capExpand, capExpand, 0.45 + 0.55 * unfurl);
+      if (animType === 'shelf') {
+        // Oyster, Reishi, Maitake: lateral shelves emerge, then caps unfurl outward horizontally
+        if (stemMesh) {
+          const sScale = Math.max(0.001, (0.08 + prim * 0.35 + elongate * 0.57));
+          stemMesh.scale.set(sScale, sScale, sScale);
+        }
+        if (capMesh) {
+          const capScaleXY = Math.max(0.001, (0.04 + prim * 0.12 + Math.pow(expand, 0.82) * 0.84));
+          const capScaleZ = Math.max(0.001, (0.10 + prim * 0.25 + expand * 0.65));
+          capMesh.scale.set(capScaleXY, capScaleXY, capScaleZ);
+        }
+      } else if (animType === 'elongate') {
+        // Enoki, Shimeji, Cordyceps: tall slender stipes stretch up high before caps mature
+        if (stemMesh) {
+          const sRad = Math.max(0.001, (0.12 + prim * 0.32 + elongate * 0.56));
+          const sHeight = Math.max(0.001, (0.04 + prim * 0.18 + Math.pow(elongate, 1.25) * 0.78));
+          stemMesh.scale.set(sRad, sRad, sHeight);
+        }
+        if (capMesh) {
+          const capRad = Math.max(0.001, (0.05 + prim * 0.15 + expand * 0.80));
+          const capZ = Math.max(0.001, (0.04 + prim * 0.18 + Math.pow(elongate, 1.25) * 0.78));
+          capMesh.scale.set(capRad, capRad, capZ);
+        }
+      } else if (animType === 'globe') {
+        // Lion's Mane: central fleshy tubercle swells, then cascading icicle spines grow downward
+        if (stemMesh) {
+          const bScale = Math.max(0.001, (0.08 + prim * 0.42 + expand * 0.50));
+          stemMesh.scale.set(bScale, bScale, bScale);
+        }
+        if (capMesh) {
+          // Spines lengthen downward prominently during mature stage
+          const spWidth = Math.max(0.001, (0.06 + prim * 0.30 + expand * 0.64));
+          const spLen = Math.max(0.001, (0.02 + prim * 0.10 + Math.pow(expand, 1.4) * 0.88));
+          capMesh.scale.set(spWidth, spWidth, spLen);
+        }
+      } else {
+        // Umbrella (Shiitake, Golden Oyster, Button, Nameko): central stipe raises, then convex cap flattens
+        if (stemMesh) {
+          const sRad = Math.max(0.001, (0.10 + prim * 0.35 + elongate * 0.55));
+          const sZ = Math.max(0.001, (0.05 + prim * 0.25 + elongate * 0.70));
+          stemMesh.scale.set(sRad, sRad, sZ);
+        }
+        if (capMesh) {
+          const cRad = Math.max(0.001, (0.05 + prim * 0.15 + Math.pow(expand, 0.85) * 0.80));
+          const cZ = Math.max(0.001, (0.08 + prim * 0.32 + expand * 0.60));
+          capMesh.scale.set(cRad, cRad, cZ);
+        }
       }
     });
   });
@@ -352,18 +484,58 @@ export function DetailedOysterMushrooms({ progressRef }) {
   return (
     <group ref={rootGroupRef} name="HUNER_LOOKDEV_DETAILED_OYSTER_OVERLAY" visible={false}>
       {items.map((item, i) => {
-        const matMain = capMaterials[item.idx % capMaterials.length];
+        const { geos, mats } = speciesData[item.specIdx];
+        const isPrimary = item.pair === 0;
+
         return (
           <group
             key={item.idx}
             ref={el => groups.current[i] = el}
             position={[item.x, item.y, item.z]}
             rotation={[0, 0, item.rotZ]}
+            scale={[item.scale, item.scale, item.scale]}
           >
-            {/* Colonized Mycelial Cushion, Primordia Pinheads, 6 Flared Lateral Stems & Decurrent Radial Gills */}
-            <mesh geometry={bouquetStemGeo} material={stemMaterial} />
-            {/* 6 Overlapping Spathulate Oyster-Shell Caps that Unfurl Outward */}
-            <mesh ref={el => capRefs.current[i] = el} geometry={bouquetCapGeo} material={matMain} />
+            {/* 1. Base Substrate Vessel (Sawdust Block, Autoclaved Bag, PP Bottle or Brown-Rice Jar) */}
+            {geos.base && <mesh geometry={geos.base} material={mats.base} />}
+            {geos.base2 && <mesh geometry={geos.base2} material={mats.base2} />}
+            {geos.accent && <mesh geometry={geos.accent} material={mats.accent} />}
+
+            {/* 2. Scientific Species Botanical Plant Tag Marker (Displayed on front/primary position) */}
+            {isPrimary && (
+              <group position={[0, 0, 0]}>
+                <mesh geometry={labelData.tagStakeGeo} material={labelData.tagBaseMat} />
+                <mesh geometry={labelData.tagCards[item.specIdx]} material={labelData.mat} />
+              </group>
+            )}
+
+            {/* 3. Emerging Morphological Fruiting Bodies (Anchored to Growth Pivot) */}
+            <group position={geos.pivot}>
+              {/* Dynamic Stipe / Stems / Tubercle Body */}
+              {geos.stem && (
+                <mesh
+                  ref={el => stemRefs.current[i] = el}
+                  geometry={geos.stem}
+                  material={mats.stem}
+                />
+              )}
+
+              {/* Dynamic Pileus Caps / Spines / Stromata */}
+              {geos.cap && (
+                <mesh
+                  ref={el => capRefs.current[i] = el}
+                  geometry={geos.cap}
+                  material={mats.cap}
+                />
+              )}
+
+              {/* Fine Anatomical Details: Gills, Veil Remnants, Mucilage & Pores */}
+              {geos.detail && (
+                <mesh
+                  geometry={geos.detail}
+                  material={mats.detail}
+                />
+              )}
+            </group>
           </group>
         );
       })}
