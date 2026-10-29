@@ -5,9 +5,9 @@ const states=[
   ['RETURN TO SCALE','The expansion vessels recede; the culture lineage continues to controlled growth.'],
   ['INCUBATOR REVEAL','The existing cabinet emerges, with racks, culture containers and a sensor panel.'],
   ['CONTROLLED ENVIRONMENT','Temperature, atmosphere and environmental conditions are monitored and regulated.'],
-  ['CULTURE OBSERVATION','The camera approaches a fixed culture container behind the transparent door.'],
-  ['MYCELIAL DEVELOPMENT','White hyphae colonize suitable medium inside the existing containers.'],
-  ['MICROSCOPIC REFERENCE','A single reference container will anchor the following macro journey.']
+  ['CULTURE OBSERVATION','The camera approaches the shake flasks on the orbital shaker decks.'],
+  ['SUBMERGED CULTURE','Mycelium grows as suspended pellets in the agitated, aerated broth.'],
+  ['REFERENCE FLASK','A single central flask anchors the following close-up.']
 ];
 export default function IncubationOverlay({progress}){
   if(progress<.435 || progress>.565)return null;

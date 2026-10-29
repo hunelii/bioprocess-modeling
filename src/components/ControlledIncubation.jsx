@@ -725,7 +725,7 @@ export function ControlledIncubation({ progressRef }) {
   return (
     <>
       <IncubatorArchitecturalDetailing progressRef={progressRef} />
-      <ReferenceMycelium progressRef={progressRef} />
+      {/* ReferenceMycelium (radial white growth at x=15.32,y=.08,z=1.69) intentionally not rendered */}
     </>
   );
 }
