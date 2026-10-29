@@ -252,52 +252,53 @@ function buildOysterShelves({ seed, count, scaleMin, scaleMax, shell, bagH = 0.1
   const r = 0.066;
   const base = growBag(bagH, r, seed);
   const stem = [], cap = [], detail = [];
-  // Two side slits on the camera-facing (−Y) wall, each producing an imbricate shelf cluster
-  const slits = count > 6 ? [[-0.018, 0.115], [0.02, 0.06]] : [[0.0, 0.10]];
+  // Three tiered side slits bursting with lush, overlapping cascading oyster clusters
+  const slits = [[-0.024, 0.125], [0.026, 0.082], [-0.015, 0.042]];
   slits.forEach(([sx, sz], si) => {
-    const n = Math.round(count / slits.length);
+    const n = Math.round(count / slits.length) + (si === 1 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const t = n === 1 ? 0 : i / (n - 1);
-      const sc = THREE.MathUtils.lerp(scaleMax, scaleMin, t) * (0.9 + rand() * 0.2);
-      const x = sx + (rand() - 0.5) * 0.05;
-      const z = sz + 0.05 - t * 0.075 + (rand() - 0.5) * 0.012;
-      const yaw = (rand() - 0.5) * 1.1 + (x * 6);
-      const tilt = -0.22 - rand() * 0.25;
-      const attach = [x * 1.1, -r * 0.78 - 0.012, z];
-      stem.push(taperTube([[x * 0.6, -r * 0.62, z - 0.018], [x * 0.9, -r * 0.74, z - 0.008], attach], 0.010 * (sc / 0.08) + 0.004, 0.008 * (sc / 0.08) + 0.003, 5, 6));
+      const sc = THREE.MathUtils.lerp(scaleMax, scaleMin, t) * (0.95 + rand() * 0.25);
+      const x = sx + (rand() - 0.5) * 0.065;
+      const z = sz + 0.055 - t * 0.075 + (rand() - 0.5) * 0.015;
+      const yaw = (rand() - 0.5) * 1.25 + (x * 6.5);
+      const tilt = -0.22 - rand() * 0.28;
+      const attach = [x * 1.15, -r * 0.78 - 0.015, z];
+      stem.push(taperTube([[x * 0.55, -r * 0.60, z - 0.020], [x * 0.88, -r * 0.74, z - 0.008], attach], 0.012 * (sc / 0.08) + 0.004, 0.009 * (sc / 0.08) + 0.003, 6, 7));
       cap.push(yawTilt(shell, attach, yaw, tilt, [sc, sc, sc]));
       detail.push(yawTilt(GILLS, attach, yaw, tilt, [sc * 0.97, sc * 0.97, sc]));
     }
-    // Primordial pin knots around each slit
-    for (let k = 0; k < 4; k++) {
-      detail.push(move(new THREE.SphereGeometry(0.004 + rand() * 0.003, 6, 5), [sx + (rand() - 0.5) * 0.05, -r * 0.8, sz - 0.03 + (rand() - 0.5) * 0.02]));
+    // Young primordial pins & hyphal cords bursting from each slit
+    for (let k = 0; k < 6; k++) {
+      detail.push(move(new THREE.SphereGeometry(0.004 + rand() * 0.0035, 6, 5), [sx + (rand() - 0.5) * 0.06, -r * 0.81, sz - 0.035 + (rand() - 0.5) * 0.025]));
     }
   });
   return { base, accent: filterPatch(bagH, r), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
 }
 
 const BUILDERS = {
-  pleurotus_ostreatus: () => buildOysterShelves({ seed: 101, count: 5, scaleMin: 0.050, scaleMax: 0.085, shell: SHELL }),
+  pleurotus_ostreatus: () => buildOysterShelves({ seed: 101, count: 12, scaleMin: 0.048, scaleMax: 0.098, shell: SHELL }),
 
-  pleurotus_djamor: () => buildOysterShelves({ seed: 202, count: 8, scaleMin: 0.034, scaleMax: 0.062, shell: SHELL_RUFFLED }),
+  pleurotus_djamor: () => buildOysterShelves({ seed: 202, count: 15, scaleMin: 0.036, scaleMax: 0.072, shell: SHELL_RUFFLED }),
 
   pleurotus_citrinopileatus: () => {
     const rand = rng(303);
     const bagH = 0.13, r = 0.064;
     const root = [0, -0.005, bagH + 0.03];
-    const stem = [move(new THREE.SphereGeometry(0.022, 10, 8), root, [1.1, 1.0, 0.75])];
+    const stem = [move(new THREE.SphereGeometry(0.026, 12, 8), root, [1.15, 1.05, 0.8])];
     const cap = [], detail = [];
     const capTop = ruffle(lathe([[0.0, -0.10], [0.25, -0.03], [0.55, 0.07], [0.85, 0.15], [1.0, 0.14], [1.02, 0.10]], 22), 0.07, 0.05, 6);
     const capUnder = lathe([[1.0, 0.09], [0.7, 0.02], [0.4, -0.08], [0.18, -0.18], [0.06, -0.30]], 18);
-    for (let i = 0; i < 10; i++) {
-      const a = i * 2.399 + rand() * 0.3;
-      const out = 0.25 + rand() * 0.55;
-      const len = 0.035 + rand() * 0.05;
+    // 22 clustered golden funnel caps
+    for (let i = 0; i < 22; i++) {
+      const a = i * 2.399 + rand() * 0.35;
+      const out = 0.20 + rand() * 0.65;
+      const len = 0.032 + rand() * 0.065;
       const dir = new THREE.Vector3(Math.cos(a) * out, Math.sin(a) * out - 0.15, 1).normalize();
       const tip = [root[0] + dir.x * len, root[1] + dir.y * len, root[2] + dir.z * len];
       const mid = [root[0] + dir.x * len * 0.45, root[1] + dir.y * len * 0.45, root[2] + dir.z * len * 0.6];
-      stem.push(taperTube([root, mid, tip], 0.0055, 0.0042, 6, 6));
-      const R = 0.022 + rand() * 0.018;
+      stem.push(taperTube([root, mid, tip], 0.0058, 0.0044, 6, 6));
+      const R = 0.018 + rand() * 0.022;
       const cdir = [dir.x * 0.55, dir.y * 0.55, 1];
       cap.push(orient(capTop, tip, cdir, [R, R, R], rand() * PI));
       detail.push(orient(capUnder, tip, cdir, [R * 0.98, R * 0.98, R]));
@@ -307,16 +308,18 @@ const BUILDERS = {
 
   lentinula_edodes: () => {
     const rand = rng(404);
-    const bw = 0.15, bd = 0.11, bh = 0.11;
+    const bw = 0.17, bd = 0.13, bh = 0.11;
     const capTop = lathe([[0.0, 0.40], [0.3, 0.38], [0.6, 0.30], [0.85, 0.17], [0.98, 0.04], [0.96, -0.06], [0.88, -0.08]], 24);
     const gills = mergeGeometriesFast([
       lathe([[0.88, -0.075], [0.6, -0.03], [0.3, 0.02], [0.12, 0.04]], 20),
       radialGills(28, 0.14, 0.86, 0.0, 0.05)
     ]);
     const fruits = [
-      { p: [-0.035, -0.012, bh], d: [-0.15, -0.25, 1], R: 0.050, h: 0.045 },
-      { p: [0.042, 0.018, bh], d: [0.2, 0.1, 1], R: 0.038, h: 0.035 },
-      { p: [0.012, -bd / 2, 0.06], d: [0.05, -1.0, 0.75], R: 0.030, h: 0.028 }
+      { p: [-0.045, -0.022, bh], d: [-0.15, -0.25, 1], R: 0.054, h: 0.048 },
+      { p: [0.048, 0.022, bh], d: [0.2, 0.1, 1], R: 0.044, h: 0.038 },
+      { p: [0.015, -bd / 2, 0.065], d: [0.05, -1.0, 0.75], R: 0.036, h: 0.032 },
+      { p: [-0.015, 0.038, bh], d: [-0.1, 0.2, 1], R: 0.040, h: 0.035 },
+      { p: [0.055, -bd / 2 + 0.015, 0.045], d: [0.4, -0.9, 0.6], R: 0.028, h: 0.025 }
     ];
     const stem = [], cap = [], detail = [];
     for (const f of fruits) {
@@ -328,14 +331,14 @@ const BUILDERS = {
       detail.push(orient(gills, top, cdir, [f.R, f.R, f.R]));
       // White cracked veil-remnant flecks near the cap margin
       const flecks = [];
-      for (let k = 0; k < 16; k++) {
-        const a = rand() * PI * 2, u = 0.45 + rand() * 0.48;
+      for (let k = 0; k < 18; k++) {
+        const a = rand() * PI * 2, u = 0.42 + rand() * 0.50;
         const z = 0.40 * (1 - u * u) + 0.02;
         flecks.push(move(new THREE.IcosahedronGeometry(0.06 + rand() * 0.05, 0), [Math.cos(a) * u, Math.sin(a) * u, z + 0.02], [1.6, 1.0, 0.35], [0, 0, a]));
       }
       detail.push(orient(mergeGeometriesFast(flecks), top, cdir, [f.R, f.R, f.R]));
     }
-    return { base: sawdustBlock(bw, bd, bh, 404, 6), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
+    return { base: sawdustBlock(bw, bd, bh, 404, 10), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
   },
 
   hericium_erinaceus: () => {
@@ -432,76 +435,90 @@ const BUILDERS = {
   },
 
   ganoderma_lucidum: () => {
-    const bw = 0.14, bd = 0.11, bh = 0.12;
-    const stalkEnd = [0.0, -0.045, 0.175];
+    const bw = 0.16, bd = 0.13, bh = 0.12;
     const stem = [
-      taperTube([[0.015, 0.0, bh - 0.005], [0.02, -0.01, bh + 0.03], [0.005, -0.03, 0.165], stalkEnd], 0.015, 0.011, 10, 8),
-      // Young antler-form fruiting body
-      taperTube([[-0.04, 0.01, bh - 0.005], [-0.05, 0.0, bh + 0.03], [-0.062, -0.012, bh + 0.06]], 0.010, 0.0075, 6, 8)
+      // Primary tiered antler stipe
+      taperTube([[0.018, 0.0, bh - 0.005], [0.025, -0.015, bh + 0.035], [0.008, -0.035, 0.170], [0.0, -0.055, 0.185]], 0.017, 0.012, 10, 8),
+      // Secondary lateral shelf stipe
+      taperTube([[-0.035, -0.02, bh - 0.005], [-0.045, -0.035, bh + 0.03], [-0.05, -0.065, 0.13]], 0.013, 0.009, 8, 8),
+      // Two young antler-form branching horns
+      taperTube([[-0.045, 0.02, bh - 0.005], [-0.06, 0.01, bh + 0.035], [-0.075, -0.008, bh + 0.075]], 0.011, 0.008, 6, 8),
+      taperTube([[0.05, 0.025, bh - 0.005], [0.062, 0.015, bh + 0.03], [0.07, 0.005, bh + 0.06]], 0.010, 0.0075, 6, 8)
     ];
     const cTop = lathe([[0.0, 0.15], [0.4, 0.145], [0.72, 0.10], [0.92, 0.04], [1.0, 0.0], [0.95, -0.035]], 32);
-    const ridges = mergeGeometriesFast([0.42, 0.62, 0.80].map((u, i) => move(new THREE.TorusGeometry(u, 0.012, 5, 32), [0, 0, 0.15 * (1 - u * u) + 0.002 - i * 0.004])));
-    const capC = [0, -0.112, 0.183];
-    const S = [0.088, 0.072, 0.075];
+    const ridges = mergeGeometriesFast([0.38, 0.58, 0.78, 0.90].map((u, i) => move(new THREE.TorusGeometry(u, 0.014, 6, 32), [0, 0, 0.15 * (1 - u * u) + 0.002 - i * 0.004])));
+    
+    // Main upper lacquered conk
+    const capC1 = [0, -0.125, 0.192];
+    const S1 = [0.105, 0.086, 0.088];
+    // Lower secondary conk
+    const capC2 = [-0.05, -0.115, 0.138];
+    const S2 = [0.068, 0.055, 0.06];
+
     const cap = [
-      yawTilt(cTop, capC, 0, -0.12, S),
-      yawTilt(ridges, capC, 0, -0.12, S)
+      yawTilt(cTop, capC1, 0, -0.12, S1),
+      yawTilt(ridges, capC1, 0, -0.12, S1),
+      yawTilt(cTop, capC2, -0.3, -0.16, S2),
+      yawTilt(ridges, capC2, -0.3, -0.16, S2)
     ];
     const detail = [
-      // Bright white-yellow actively growing margin
-      yawTilt(new THREE.TorusGeometry(0.99, 0.045, 6, 36), [capC[0], capC[1], capC[2] - 0.001], 0, -0.12, S),
-      // Cream pore surface underneath
-      yawTilt(new THREE.CircleGeometry(0.95, 32), [capC[0], capC[1], capC[2] - 0.003], 0, -0.12 + PI, S),
-      // White growing tip of the young antler
-      move(new THREE.SphereGeometry(0.0085, 10, 8), [-0.062, -0.012, bh + 0.062], [1, 1, 1.25])
+      // Bright white-yellow actively growing margin on both brackets
+      yawTilt(new THREE.TorusGeometry(0.99, 0.045, 6, 36), [capC1[0], capC1[1], capC1[2] - 0.001], 0, -0.12, S1),
+      yawTilt(new THREE.CircleGeometry(0.95, 32), [capC1[0], capC1[1], capC1[2] - 0.003], 0, -0.12 + PI, S1),
+      yawTilt(new THREE.TorusGeometry(0.99, 0.045, 6, 36), [capC2[0], capC2[1], capC2[2] - 0.001], -0.3, -0.16, S2),
+      yawTilt(new THREE.CircleGeometry(0.95, 32), [capC2[0], capC2[1], capC2[2] - 0.003], -0.3, -0.16 + PI, S2),
+      // White growing tips of the young antlers
+      move(new THREE.SphereGeometry(0.009, 10, 8), [-0.075, -0.008, bh + 0.078], [1, 1, 1.3]),
+      move(new THREE.SphereGeometry(0.008, 10, 8), [0.07, 0.005, bh + 0.063], [1, 1, 1.3])
     ];
-    return { base: sawdustBlock(bw, bd, bh, 808, 8), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
+    return { base: sawdustBlock(bw, bd, bh, 808, 10), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
   },
 
   grifola_frondosa: () => {
     const rand = rng(909);
-    const bw = 0.15, bd = 0.12, bh = 0.09;
+    const bw = 0.17, bd = 0.14, bh = 0.09;
     const C = [0, -0.01, bh];
-    const stem = [move(new THREE.SphereGeometry(0.035, 12, 8), [C[0], C[1], C[2] + 0.01], [1.1, 1.0, 0.8])];
+    const stem = [move(new THREE.SphereGeometry(0.042, 14, 10), [C[0], C[1], C[2] + 0.01], [1.2, 1.1, 0.85])];
     const cap = [], detail = [];
-    const fronds = 30;
+    const fronds = 54;
     for (let k = 0; k < fronds; k++) {
       const t = k / fronds;
-      const a = k * 2.39996 + rand() * 0.2;
-      const rr = 0.012 + (1 - t) * 0.05;
-      const h = 0.015 + t * 0.07 + rand() * 0.01;
+      const a = k * 2.39996 + rand() * 0.25;
+      const rr = 0.014 + (1 - t) * 0.065;
+      const h = 0.018 + t * 0.082 + rand() * 0.015;
       const tipP = [C[0] + Math.cos(a) * rr, C[1] + Math.sin(a) * rr, C[2] + h];
-      stem.push(taperTube([[C[0] + Math.cos(a) * 0.01, C[1] + Math.sin(a) * 0.01, C[2] + 0.01], [C[0] + Math.cos(a) * rr * 0.6, C[1] + Math.sin(a) * rr * 0.6, C[2] + h * 0.6], tipP], 0.007, 0.005, 5, 5));
-      const sc = 0.028 + (1 - t) * 0.022 + rand() * 0.006;
+      stem.push(taperTube([[C[0] + Math.cos(a) * 0.012, C[1] + Math.sin(a) * 0.012, C[2] + 0.01], [C[0] + Math.cos(a) * rr * 0.6, C[1] + Math.sin(a) * rr * 0.6, C[2] + h * 0.6], tipP], 0.0075, 0.0052, 5, 5));
+      const sc = 0.034 + (1 - t) * 0.028 + rand() * 0.008;
       const yaw = a + PI / 2;
-      const tilt = -0.15 - t * 0.75;
-      cap.push(yawTilt(SHELL_FROND, tipP, yaw, tilt, [sc * 0.8, sc, sc]));
-      detail.push(yawTilt(GILLS, tipP, yaw, tilt, [sc * 0.78, sc * 0.97, sc]));
+      const tilt = -0.15 - t * 0.80;
+      cap.push(yawTilt(SHELL_FROND, tipP, yaw, tilt, [sc * 0.82, sc, sc]));
+      detail.push(yawTilt(GILLS, tipP, yaw, tilt, [sc * 0.80, sc * 0.97, sc]));
     }
-    return { base: sawdustBlock(bw, bd, bh, 909, 6), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
+    return { base: sawdustBlock(bw, bd, bh, 909, 8), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
   },
 
   pholiota_nameko: () => {
     const rand = rng(1010);
-    const bw = 0.15, bd = 0.11, bh = 0.10;
+    const bw = 0.16, bd = 0.12, bh = 0.10;
     const C = [0, -0.01, bh];
-    const capTop = lathe([[0.0, 0.62], [0.45, 0.56], [0.8, 0.38], [0.98, 0.12], [1.0, 0.0], [0.9, -0.05], [0.4, -0.04]], 16);
-    const stem = [move(new THREE.SphereGeometry(0.03, 10, 6), C, [1.3, 1.0, 0.35])];
+    const capTop = lathe([[0.0, 0.62], [0.45, 0.56], [0.8, 0.38], [0.98, 0.12], [1.0, 0.0], [0.9, -0.05], [0.4, -0.04]], 18);
+    const stem = [move(new THREE.SphereGeometry(0.032, 12, 8), C, [1.35, 1.05, 0.38])];
     const cap = [], detail = [];
-    for (let i = 0; i < 16; i++) {
-      const a = i * 2.399 + rand() * 0.3;
-      const out = 0.1 + rand() * 0.75;
-      const len = 0.02 + rand() * 0.035;
+    // 34 small button caps in tight clusters
+    for (let i = 0; i < 34; i++) {
+      const a = i * 2.399 + rand() * 0.35;
+      const out = 0.1 + rand() * 0.85;
+      const len = 0.024 + rand() * 0.044;
       const dir = new THREE.Vector3(Math.cos(a) * out, Math.sin(a) * out, 1).normalize();
-      const s = [C[0] + Math.cos(a) * 0.018 * rand(), C[1] + Math.sin(a) * 0.018 * rand(), C[2]];
+      const s = [C[0] + Math.cos(a) * 0.024 * rand(), C[1] + Math.sin(a) * 0.024 * rand(), C[2]];
       const tip = [s[0] + dir.x * len, s[1] + dir.y * len, s[2] + dir.z * len];
-      stem.push(taperTube([s, tip], 0.0042, 0.0036, 3, 6));
-      const R = 0.009 + rand() * 0.009;
+      stem.push(taperTube([s, tip], 0.0044, 0.0036, 4, 6));
+      const R = 0.011 + rand() * 0.011;
       const cdir = [dir.x * 0.5, dir.y * 0.5, 1];
       cap.push(orient(capTop, tip, cdir, [R, R, R]));
-      detail.push(orient(capTop, [tip[0], tip[1], tip[2] - R * 0.02], cdir, [R * 1.1, R * 1.1, R * 1.12])); // translucent mucilage coat
+      detail.push(orient(capTop, [tip[0], tip[1], tip[2] - R * 0.02], cdir, [R * 1.12, R * 1.12, R * 1.14]));
     }
-    return { base: sawdustBlock(bw, bd, bh, 1010, 6), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
+    return { base: sawdustBlock(bw, bd, bh, 1010, 8), stem: mergeGeometriesFast(stem), cap: mergeGeometriesFast(cap), detail: mergeGeometriesFast(detail) };
   },
 
   cordyceps_militaris: () => {

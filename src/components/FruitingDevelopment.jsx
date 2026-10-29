@@ -83,7 +83,7 @@ export function FruitingAtmosphere({ progressRef }) {
     const nozzleCyl = new THREE.CylinderGeometry(0.012, 0.018, 0.042, 8);
     const subPatch = new THREE.DodecahedronGeometry(0.11, 0);
 
-    // Overhead shelf grow-light housings + 12 Ultrasonic Humidity Mist Nozzles above each of the 3 fruiting tiers
+    // Overhead shelf grow-light housings, LED strip bars & living biological shelf environment
     for (let r = 0; r < 3; r++) {
       const zBar = [1.46, 2.26, 3.04][r];
       const zTray = Z[r] - 0.055;
@@ -96,13 +96,25 @@ export function FruitingAtmosphere({ progressRef }) {
         // Ultrasonic misting nozzle on the overhead bar
         steelGeos.push(transformGeo(nozzleCyl, [nx, -0.05, zBar - 0.035], [Math.PI / 2, 0, 0]));
 
-        // White colonized mycelial mat & surface veins spreading across the dark substrate tray around each cluster pair
+        // Dense, spreading living rhizomorphic mycelial cushions and stolons across the tray
         for (const pairOff of [-0.085, 0.09]) {
           diffuserGeos.push(transformGeo(
             subPatch,
-            [nx + pairOff, ny + (pairOff < 0 ? 0.055 : -0.07), zTray - 0.008],
+            [nx + pairOff, ny + (pairOff < 0 ? 0.055 : -0.07), zTray - 0.006],
             [0, 0, c * 0.7 + r],
-            [1.45, 1.15, 0.14]
+            [1.85, 1.45, 0.22]
+          ));
+        }
+
+        // Spreading inter-cluster mycelial hyphae connecting the cultures across the shelf surface
+        if (c < 3) {
+          const nextX = X[c + 1];
+          const midX = (nx + nextX) * 0.5;
+          diffuserGeos.push(transformGeo(
+            subPatch,
+            [midX, ny * 0.5, zTray - 0.012],
+            [0, 0.2, c + r],
+            [1.2, 0.8, 0.08]
           ));
         }
       }
