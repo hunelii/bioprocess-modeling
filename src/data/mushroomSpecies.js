@@ -605,31 +605,31 @@ const BUILDERS = {
 // ---------------------------------------------------------------------------
 export const MUSHROOM_SPECIES = [
   { key: 'pleurotus_ostreatus', latin: 'Pleurotus ostreatus', common: 'Pearl oyster', row: 0, col: 0, anim: 'shelf',
-    mats: { base: { color: '#ebe6d8', rough: 0.85 }, accent: { color: '#ffffff', rough: 0.9 }, stem: { color: '#efe9dc', rough: 0.7 }, cap: { color: '#8e8983', rough: 0.55 }, detail: { color: '#f1ead9', rough: 0.75 } } },
+    mats: { base: { color: '#f3eedf', rough: 0.75 }, accent: { color: '#ffffff', rough: 0.8 }, stem: { color: '#fffdf6', rough: 0.55 }, cap: { color: '#9d968e', emissive: '#3a342c', emissiveIntensity: 0.22, rough: 0.4 }, detail: { color: '#faf4e5', emissive: '#2d271f', emissiveIntensity: 0.15, rough: 0.6 } } },
   { key: 'pleurotus_djamor', latin: 'Pleurotus djamor', common: 'Pink oyster', row: 0, col: 1, anim: 'shelf',
-    mats: { base: { color: '#ebe6d8', rough: 0.85 }, accent: { color: '#ffffff', rough: 0.9 }, stem: { color: '#f2d4d4', rough: 0.7 }, cap: { color: '#e28c9a', rough: 0.5 }, detail: { color: '#f4c3c8', rough: 0.7 } } },
+    mats: { base: { color: '#f2ece0', rough: 0.75 }, accent: { color: '#ffffff', rough: 0.8 }, stem: { color: '#ffd6db', emissive: '#4a1520', emissiveIntensity: 0.18, rough: 0.55 }, cap: { color: '#ff7593', emissive: '#5c1729', emissiveIntensity: 0.35, rough: 0.38 }, detail: { color: '#ffa4b6', emissive: '#4a1520', emissiveIntensity: 0.2, rough: 0.5 } } },
   { key: 'pleurotus_citrinopileatus', latin: 'Pleurotus citrinopileatus', common: 'Golden oyster', row: 0, col: 2, anim: 'umbrella',
-    mats: { base: { color: '#ebe6d8', rough: 0.85 }, accent: { color: '#ffffff', rough: 0.9 }, stem: { color: '#f4eedb', rough: 0.7 }, cap: { color: '#f0be1c', rough: 0.45 }, detail: { color: '#f7e7a6', rough: 0.7 } } },
+    mats: { base: { color: '#f2ece0', rough: 0.75 }, accent: { color: '#ffffff', rough: 0.8 }, stem: { color: '#fff9ea', rough: 0.55 }, cap: { color: '#ffd000', emissive: '#664d00', emissiveIntensity: 0.45, rough: 0.32 }, detail: { color: '#fff2b3', emissive: '#403000', emissiveIntensity: 0.2, rough: 0.5 } } },
   { key: 'lentinula_edodes', latin: 'Lentinula edodes', common: 'Shiitake', row: 0, col: 3, anim: 'umbrella',
-    mats: { base: { color: '#5e3f26', rough: 0.95 }, stem: { color: '#dccbab', rough: 0.8 }, cap: { color: '#5b3720', rough: 0.6 }, detail: { color: '#efe5d1', rough: 0.8 } } },
+    mats: { base: { color: '#4a2c16', emissive: '#1f1005', emissiveIntensity: 0.15, rough: 0.85 }, stem: { color: '#ebdcc5', rough: 0.65 }, cap: { color: '#7a421d', emissive: '#331505', emissiveIntensity: 0.25, rough: 0.45 }, detail: { color: '#fff8ea', rough: 0.6 } } },
 
   { key: 'hericium_erinaceus', latin: 'Hericium erinaceus', common: "Lion's mane", row: 1, col: 0, anim: 'globe',
-    mats: { base: { color: '#e8e1cf', rough: 0.85 }, accent: { color: '#3a3024', rough: 0.9 }, stem: { color: '#f6f0e1', rough: 0.8 }, cap: { color: '#f8f1df', rough: 0.75 } } },
+    mats: { base: { color: '#f0e8d8', rough: 0.75 }, accent: { color: '#3a3024', rough: 0.85 }, stem: { color: '#fffaee', emissive: '#423824', emissiveIntensity: 0.18, rough: 0.6 }, cap: { color: '#ffffff', emissive: '#524832', emissiveIntensity: 0.28, rough: 0.45 } } },
   { key: 'flammulina_velutipes', latin: 'Flammulina velutipes', common: 'Enoki', row: 1, col: 1, anim: 'elongate',
-    mats: { base: { color: '#d9ded8', rough: 0.45 }, base2: { glass: true, color: '#eef6f2', opacity: 0.22 }, accent: { color: '#c9ab78', rough: 0.95 }, stem: { color: '#f6f1e0', rough: 0.65 }, cap: { color: '#efe5c8', rough: 0.6 } } },
+    mats: { base: { color: '#e8eee6', rough: 0.35 }, base2: { glass: true, color: '#f0fcf6', opacity: 0.26 }, accent: { color: '#d8ba82', rough: 0.85 }, stem: { color: '#ffffff', emissive: '#3d382c', emissiveIntensity: 0.25, rough: 0.45 }, cap: { color: '#fff1c7', emissive: '#4f421f', emissiveIntensity: 0.32, rough: 0.4 } } },
   { key: 'hypsizygus_marmoreus', latin: 'Hypsizygus marmoreus', common: 'Brown beech (shimeji)', row: 1, col: 2, anim: 'elongate',
-    mats: { base: { color: '#c9d4dc', rough: 0.45 }, accent: { color: '#c9ab78', rough: 0.95 }, stem: { color: '#f3eee3', rough: 0.7 }, cap: { color: '#6c4c32', rough: 0.55 }, detail: { color: '#9c7d5c', rough: 0.6 } } },
+    mats: { base: { color: '#dbe4ec', rough: 0.35 }, accent: { color: '#d8ba82', rough: 0.85 }, stem: { color: '#faf6ee', emissive: '#332f26', emissiveIntensity: 0.18, rough: 0.55 }, cap: { color: '#8c5d39', emissive: '#361e0f', emissiveIntensity: 0.28, rough: 0.42 }, detail: { color: '#c49e78', emissive: '#331f12', emissiveIntensity: 0.15, rough: 0.5 } } },
   { key: 'ganoderma_lucidum', latin: 'Ganoderma lucidum', common: 'Reishi', row: 1, col: 3, anim: 'shelf',
-    mats: { base: { color: '#cbbb98', rough: 0.9 }, stem: { color: '#4a1a10', rough: 0.22, metal: 0.08 }, cap: { color: '#6a1d12', rough: 0.16, metal: 0.1 }, detail: { color: '#f2e2b0', rough: 0.7 } } },
+    mats: { base: { color: '#d8c7a2', rough: 0.85 }, stem: { color: '#57180c', emissive: '#260601', emissiveIntensity: 0.22, rough: 0.18, metal: 0.12 }, cap: { color: '#9e1c0a', emissive: '#470800', emissiveIntensity: 0.42, rough: 0.12, metal: 0.15 }, detail: { color: '#fff2b8', emissive: '#544200', emissiveIntensity: 0.35, rough: 0.5 } } },
 
   { key: 'grifola_frondosa', latin: 'Grifola frondosa', common: 'Maitake', row: 2, col: 0, anim: 'shelf',
-    mats: { base: { color: '#c7b38f', rough: 0.9 }, stem: { color: '#efe8d6', rough: 0.75 }, cap: { color: '#685948', rough: 0.6 }, detail: { color: '#e6dccb', rough: 0.75 } } },
+    mats: { base: { color: '#d8c59f', rough: 0.85 }, stem: { color: '#faf4e4', rough: 0.65 }, cap: { color: '#8c775e', emissive: '#2e2418', emissiveIntensity: 0.22, rough: 0.48 }, detail: { color: '#f5ede0', rough: 0.65 } } },
   { key: 'pholiota_nameko', latin: 'Pholiota nameko', common: 'Nameko', row: 2, col: 1, anim: 'umbrella',
-    mats: { base: { color: '#a98a62', rough: 0.9 }, stem: { color: '#ead9a6', rough: 0.6 }, cap: { color: '#b4541a', rough: 0.1, metal: 0.05 }, detail: { color: '#f0a54a', rough: 0.05, opacity: 0.32 } } },
+    mats: { base: { color: '#bfa072', rough: 0.85 }, stem: { color: '#ffebad', rough: 0.48 }, cap: { color: '#e66512', emissive: '#662400', emissiveIntensity: 0.45, rough: 0.08, metal: 0.08 }, detail: { color: '#ffb24d', emissive: '#663300', emissiveIntensity: 0.3, rough: 0.04, opacity: 0.4 } } },
   { key: 'cordyceps_militaris', latin: 'Cordyceps militaris', common: 'Cordyceps', row: 2, col: 2, anim: 'elongate',
-    mats: { base: { color: '#eec06a', rough: 0.85 }, base2: { glass: true, color: '#e8f4ee', opacity: 0.2 }, stem: { color: '#f29a3a', rough: 0.55 }, cap: { color: '#e5601a', rough: 0.5 } } },
+    mats: { base: { color: '#ffcd66', emissive: '#523700', emissiveIntensity: 0.25, rough: 0.75 }, base2: { glass: true, color: '#f0fcf6', opacity: 0.22 }, stem: { color: '#ff9d26', emissive: '#6e3600', emissiveIntensity: 0.42, rough: 0.45 }, cap: { color: '#ff5500', emissive: '#801a00', emissiveIntensity: 0.55, rough: 0.38 } } },
   { key: 'agaricus_bisporus', latin: 'Agaricus bisporus', common: 'Button mushroom', row: 2, col: 3, anim: 'umbrella',
-    mats: { base: { color: '#2d3330', rough: 0.6 }, base2: { color: '#3a2c22', rough: 0.98 }, stem: { color: '#efeae0', rough: 0.7 }, cap: { color: '#f2eee5', rough: 0.55 }, detail: { color: '#8b6656', rough: 0.8 } } }
+    mats: { base: { color: '#2b332f', rough: 0.55 }, base2: { color: '#33241a', rough: 0.95 }, stem: { color: '#ffffff', emissive: '#3b3832', emissiveIntensity: 0.2, rough: 0.55 }, cap: { color: '#fffdfa', emissive: '#454037', emissiveIntensity: 0.25, rough: 0.45 }, detail: { color: '#9e6d58', emissive: '#331a0e', emissiveIntensity: 0.18, rough: 0.7 } } }
 ];
 
 export function buildSpeciesGeometry(key) {

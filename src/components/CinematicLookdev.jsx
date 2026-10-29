@@ -296,6 +296,8 @@ export function DetailedOysterMushrooms({ progressRef }) {
       // Base substrate / block / bag / bottle
       mats.base = new THREE.MeshStandardMaterial({
         color: mCfg.base.color,
+        emissive: mCfg.base.emissive || '#000000',
+        emissiveIntensity: mCfg.base.emissiveIntensity || 0,
         roughness: mCfg.base.rough ?? 0.8,
         metalness: mCfg.base.metal ?? 0.05
       });
@@ -324,6 +326,8 @@ export function DetailedOysterMushrooms({ progressRef }) {
 
       mats.stem = new THREE.MeshStandardMaterial({
         color: mCfg.stem.color,
+        emissive: mCfg.stem.emissive || '#000000',
+        emissiveIntensity: mCfg.stem.emissiveIntensity || 0,
         roughness: mCfg.stem.rough ?? 0.7,
         metalness: mCfg.stem.metal ?? 0.02,
         side: THREE.DoubleSide
@@ -331,6 +335,8 @@ export function DetailedOysterMushrooms({ progressRef }) {
 
       mats.cap = new THREE.MeshStandardMaterial({
         color: mCfg.cap.color,
+        emissive: mCfg.cap.emissive || '#000000',
+        emissiveIntensity: mCfg.cap.emissiveIntensity || 0,
         roughness: mCfg.cap.rough ?? 0.5,
         metalness: mCfg.cap.metal ?? 0.04,
         side: THREE.DoubleSide
@@ -339,6 +345,8 @@ export function DetailedOysterMushrooms({ progressRef }) {
       if (geos.detail) {
         mats.detail = new THREE.MeshStandardMaterial({
           color: mCfg.detail?.color || mCfg.cap.color,
+          emissive: mCfg.detail?.emissive || '#000000',
+          emissiveIntensity: mCfg.detail?.emissiveIntensity || 0,
           roughness: mCfg.detail?.rough ?? 0.6,
           metalness: mCfg.detail?.metal ?? 0.02,
           transparent: !!mCfg.detail?.opacity,
@@ -391,11 +399,11 @@ export function DetailedOysterMushrooms({ progressRef }) {
         pair,
         idx,
         specIdx,
-        x: X[col] + (pair === 0 ? -.085 : .09),
-        y: Y[col] + (pair === 0 ? .055 : -.07),
-        z: Z[row] - .055,
-        rotZ: (pair === 0 ? -0.15 : 0.20) + (jitter - 0.5) * 0.25,
-        scale: isPair ? 0.88 + jitter * 0.15 : 1.05 + jitter * 0.12
+        x: X[col] + (pair === 0 ? -.145 : .145),
+        y: (pair === 0 ? -.16 : .08),
+        z: Z[row] - .045,
+        rotZ: (pair === 0 ? -0.12 : 0.16) + (jitter - 0.5) * 0.2,
+        scale: (isPair ? 1.45 + jitter * 0.25 : 1.75 + jitter * 0.2)
       });
       idx++;
     }

@@ -92,17 +92,16 @@ export function FruitingAtmosphere({ progressRef }) {
 
       for (let c = 0; c < 4; c++) {
         const nx = X[c];
-        const ny = Y[c];
         // Ultrasonic misting nozzle on the overhead bar
         steelGeos.push(transformGeo(nozzleCyl, [nx, -0.05, zBar - 0.035], [Math.PI / 2, 0, 0]));
 
         // Dense, spreading living rhizomorphic mycelial cushions and stolons across the tray
-        for (const pairOff of [-0.085, 0.09]) {
+        for (const [pairOffX, pairOffY] of [[-0.145, -0.16], [0.145, 0.08]]) {
           diffuserGeos.push(transformGeo(
             subPatch,
-            [nx + pairOff, ny + (pairOff < 0 ? 0.055 : -0.07), zTray - 0.006],
+            [nx + pairOffX, pairOffY, zTray - 0.004],
             [0, 0, c * 0.7 + r],
-            [1.85, 1.45, 0.22]
+            [2.4, 1.85, 0.28]
           ));
         }
 
@@ -112,9 +111,9 @@ export function FruitingAtmosphere({ progressRef }) {
           const midX = (nx + nextX) * 0.5;
           diffuserGeos.push(transformGeo(
             subPatch,
-            [midX, ny * 0.5, zTray - 0.012],
+            [midX, -0.04, zTray - 0.008],
             [0, 0.2, c + r],
-            [1.2, 0.8, 0.08]
+            [1.9, 1.2, 0.14]
           ));
         }
       }
