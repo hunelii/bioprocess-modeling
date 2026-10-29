@@ -19,6 +19,8 @@ export function IsolationSelection({ progressRef }) {
   const transfer = useRef();
   const loopToolRef = useRef();
   const loopSampleRef = useRef();
+  const streakTrackRef = useRef();
+  const flameRef = useRef();
   const lastP = useRef(-1);
 
   const sourceColonyMat = useMemo(() => new THREE.ShaderMaterial({
@@ -54,6 +56,30 @@ export function IsolationSelection({ progressRef }) {
 
   const steelMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#a8b6af', metalness: 0.85, roughness: 0.20, envMapIntensity: 0.90
+  }), []);
+
+  // Separate material for the inoculation loop wire so it can glow red-orange right after flame sterilization
+  const wireLoopMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#b8c6bf',
+    emissive: '#ff4800',
+    emissiveIntensity: 0.0,
+    metalness: 0.85,
+    roughness: 0.18
+  }), []);
+
+  const bunsenFlameMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#4ad4ff',
+    transparent: true,
+    opacity: 0.62,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  }), []);
+
+  const streakTrackMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#e8f5ec',
+    transparent: true,
+    opacity: 0.52,
+    depthWrite: false
   }), []);
 
   const brassChuckMat = useMemo(() => new THREE.MeshStandardMaterial({
@@ -101,6 +127,33 @@ export function IsolationSelection({ progressRef }) {
       transformGeo(new THREE.CylinderGeometry(0.0054, 0.0054, 0.016, 16), [0, 0.1290, 0])
     ]);
 
+    // Laboratory Bunsen Burner (Steril Alev Beki) positioned between the two Petri plates at [7.47, -0.02, 1.258]
+    const bx = 7.47, by = -0.02, bz = 1.258;
+    steelList.push(
+      transformGeo(new THREE.CylinderGeometry(0.036, 0.042, 0.008, 20), [bx, by, bz + 0.004], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.016, 0.028, 0.014, 16), [bx, by, bz + 0.015], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.0085, 0.0085, 0.095, 14), [bx, by, bz + 0.072], [Math.PI / 2, 0, 0]),
+      // Side gas hose barb nozzle
+      transformGeo(new THREE.CylinderGeometry(0.004, 0.004, 0.032, 8), [bx - 0.018, by + 0.012, bz + 0.018], [0, 0, Math.PI / 2])
+    );
+
+    const flameGeo = mergeGeometriesFast([
+      // Outer translucent blue-violet Bunsen flame cone
+      transformGeo(new THREE.ConeGeometry(0.0105, 0.048, 14), [bx, by, bz + 0.144], [Math.PI / 2, 0, 0]),
+      // Inner intense cyan-blue reducing cone
+      transformGeo(new THREE.ConeGeometry(0.0055, 0.024, 12), [bx, by, bz + 0.132], [Math.PI / 2, 0, 0])
+    ]);
+
+    // Zigzag Inoculation Streak Track (Ekme İzi) on the Isolate Plate C_Petri_1 agar surface [8.06, -0.20, 1.2891]
+    const streakPts = [];
+    for (let i = 0; i <= 18; i++) {
+      const u = i / 18;
+      const sx = 8.042 + u * 0.036;
+      const sy = -0.20 + Math.sin(u * Math.PI * 5.0) * (0.022 * (1.0 - u * 0.45));
+      streakPts.push(new THREE.Vector3(sx, sy, 1.2891));
+    }
+    const streakGeo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(streakPts), 24, 0.00055, 4, false);
+
     const rubberGripGeo = mergeGeometriesFast([
       // 6. Ergonomic ribbed rubber finger grip sleeve (y=0.1360 to y=0.2060, length 0.070m, center y=0.1710)
       transformGeo(new THREE.CylinderGeometry(0.0064, 0.0064, 0.070, 16), [0, 0.1710, 0]),
@@ -124,7 +177,9 @@ export function IsolationSelection({ progressRef }) {
       wireLoopGeo,
       brassChuckGeo,
       handleShaftGeo,
-      rubberGripGeo
+      rubberGripGeo,
+      flameGeo,
+      streakGeo
     };
   }, []);
 
@@ -210,6 +265,24 @@ export function IsolationSelection({ progressRef }) {
         if (loopSampleRef.current) {
           loopSampleRef.current.visible = p >= 0.256 && p <= 0.315;
         }
+        // Subtle red-orange incandescence cooling down right after Bunsen flame sterilization (p = 0.230 -> 0.244)
+        wireLoopMat.emissiveIntensity = Math.max(0, 1.35 * (1.0 - eased(0.230, 0.244, p)));
+      }
+    }
+
+    if (streakTrackRef.current) {
+      const streakVis = inZoneC && p >= 0.304;
+      streakTrackRef.current.visible = streakVis;
+      if (streakVis) {
+        streakTrackMat.opacity = 0.55 * eased(0.304, 0.322, p);
+      }
+    }
+
+    if (flameRef.current) {
+      flameRef.current.visible = inZoneC;
+      if (inZoneC) {
+        const flicker = 0.92 + 0.08 * Math.sin(p * 320.0);
+        flameRef.current.scale.set(1, 1, flicker);
       }
     }
   });
@@ -219,6 +292,8 @@ export function IsolationSelection({ progressRef }) {
       <mesh geometry={batchedHardware.glassGeo} material={glassMat} />
       <mesh geometry={batchedHardware.steelGeo} material={steelMat} />
       <mesh geometry={batchedHardware.coreGeo} material={hyphaMat} />
+      <mesh ref={flameRef} geometry={batchedHardware.flameGeo} material={bunsenFlameMat} visible={false} />
+      <mesh ref={streakTrackRef} geometry={batchedHardware.streakGeo} material={streakTrackMat} visible={false} />
 
       {/* Source Plate Radial Rhizomorphic Mycelium Colony centered directly on C_Petri_0 agar (z = 1.2890) */}
       <group ref={sourceGroupRef} position={[SOURCE_PLATE[0], SOURCE_PLATE[1], 1.2890]} visible={false}>
@@ -243,7 +318,7 @@ export function IsolationSelection({ progressRef }) {
       <group ref={loopToolRef} visible={false}>
         {/* Tilt the entire coaxial Y-aligned tool around its tip (0,0,0) as a single rigid body */}
         <group rotation={[0.92, 0, -0.45]}>
-          <mesh geometry={batchedHardware.wireLoopGeo} material={steelMat} />
+          <mesh geometry={batchedHardware.wireLoopGeo} material={wireLoopMat} />
           <mesh geometry={batchedHardware.brassChuckGeo} material={brassChuckMat} />
           <mesh geometry={batchedHardware.rubberGripGeo} material={gripMat} />
           <mesh geometry={batchedHardware.handleShaftGeo} material={handleMat} />

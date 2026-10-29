@@ -59,7 +59,9 @@ const pelletFragmentShader = `
 
 function CultureThreads({ vessel, progressRef }) {
   const group = useRef();
+  const stirBarRef = useRef();
   const tierRefs = useRef([]);
+  const lastP = useRef(-1);
 
   const cx = vessel.center[0], cy = vessel.center[1];
   const rOut = vessel.outerRadius;
@@ -140,6 +142,8 @@ function CultureThreads({ vessel, progressRef }) {
 
     const portCyl = new THREE.CylinderGeometry(0.022, 0.022, 0.11, 8);
     const capCyl = new THREE.CylinderGeometry(0.032, 0.032, 0.025, 8);
+    const hepaDisc = new THREE.CylinderGeometry(0.052, 0.052, 0.014, 14);
+    const clampBox = new THREE.BoxGeometry(0.036, 0.018, 0.022);
     const tieRodCyl = new THREE.CylinderGeometry(0.011, 0.011, h + 0.04, 6);
 
     for (let k = 0; k < 4; k++) {
@@ -150,14 +154,38 @@ function CultureThreads({ vessel, progressRef }) {
       steelList.push(transformGeo(portCyl, [px, py, vessel.zTop + 0.11], [Math.PI / 2, 0, 0]));
       darkList.push(transformGeo(capCyl, [px, py, vessel.zTop + 0.175], [Math.PI / 2, 0, 0]));
 
+      // Add 0.22 µm sterile PTFE HEPA vent filter discs & silicone dosing hose with pinch clamp on front/side ports
+      if (k < 2) {
+        steelList.push(transformGeo(hepaDisc, [px, py, vessel.zTop + 0.205], [Math.PI / 2, 0, 0]));
+        const hoseCurve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(px, py, vessel.zTop + 0.215),
+          new THREE.Vector3(px + (k === 0 ? 0.08 : -0.08), py - 0.06, vessel.zTop + 0.30),
+          new THREE.Vector3(cx + (k === 0 ? 0.16 : -0.16), cy - 0.12, vessel.zTop + 0.24)
+        ]);
+        steelList.push(new THREE.TubeGeometry(hoseCurve, 10, 0.0085, 6, false));
+        darkList.push(transformGeo(clampBox, [px + (k === 0 ? 0.05 : -0.05), py - 0.04, vessel.zTop + 0.27], [0.3, 0, ang]));
+      }
+
       const tang = (k / 4) * Math.PI * 2 + 0.78;
       steelList.push(transformGeo(tieRodCyl, [cx + Math.cos(tang) * (rOut * 1.02), cy + Math.sin(tang) * (rOut * 1.02), zMid], [Math.PI / 2, 0, 0]));
     }
 
+    // Broth column + concave spinning vortex meniscus funnel at the top of the liquid
+    const zMeniscus = vessel.zBottom + h * 0.78;
+    const brothGeo = mergeGeometriesFast([
+      transformGeo(new THREE.CylinderGeometry(rOut * 0.93, rOut * 0.93, h * 0.76, 24), [cx, cy, vessel.zBottom + h * 0.40], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.TorusGeometry(rOut * 0.62, rOut * 0.26, 8, 24), [cx, cy, zMeniscus - 0.015], [0, 0, 0], [1, 1, 0.22]),
+      transformGeo(new THREE.ConeGeometry(rOut * 0.42, h * 0.16, 18, 1, true), [cx, cy, zMeniscus - h * 0.08], [-Math.PI / 2, 0, 0])
+    ]);
+
+    // PTFE / Teflon Magnetic Stir Bar capsule at the bottom center of the vessel
+    const stirBarGeo = transformGeo(new THREE.CapsuleGeometry(0.016 + vessel.id * 0.004, 0.075 + vessel.id * 0.025, 4, 8), [0, 0, 0], [0, 0, Math.PI / 2]);
+
     return {
       steelGeo: mergeGeometriesFast(steelList),
       darkGeo: mergeGeometriesFast(darkList),
-      brothGeo: transformGeo(new THREE.CylinderGeometry(rOut * 0.93, rOut * 0.93, h * 0.76, 24), [cx, cy, vessel.zBottom + h * 0.40], [Math.PI / 2, 0, 0])
+      brothGeo,
+      stirBarGeo
     };
   }, [cx, cy, rOut, h, zMid, vessel]);
 
@@ -190,6 +218,12 @@ function CultureThreads({ vessel, progressRef }) {
     const active = a > 0.01 && (p >= 0.28 || p > 0.90);
     if (group.current) group.current.visible = active;
     if (!active) return;
+    if (Math.abs(p - lastP.current) < 0.0002) return;
+    lastP.current = p;
+
+    if (stirBarRef.current) {
+      stirBarRef.current.rotation.z = p * (140.0 + vessel.id * 25.0);
+    }
 
     pelletMat.uniforms.uGrowth.value = a;
     for (let i = 0; i < batchedBiomass.tierCount; i++) {
@@ -203,6 +237,13 @@ function CultureThreads({ vessel, progressRef }) {
       <mesh geometry={batchedVessel.steelGeo} material={steelMat} />
       <mesh geometry={batchedVessel.darkGeo} material={darkSteelMat} />
       <mesh geometry={batchedVessel.brothGeo} material={brothMat} />
+      {/* Spinning PTFE Magnetic Stir Bar at the bottom center of each vessel */}
+      <mesh
+        ref={stirBarRef}
+        geometry={batchedVessel.stirBarGeo}
+        material={strandMat}
+        position={[cx, cy, vessel.zBottom + 0.042]}
+      />
 
       <group ref={group} visible={false}>
         <points material={pelletMat} frustumCulled={false}>

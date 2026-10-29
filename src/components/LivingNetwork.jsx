@@ -106,6 +106,7 @@ function buildBatchedAnastomosisTiers() {
 export function LivingNetwork({ progressRef }) {
   const tierRefs = useRef([]);
   const crossRefs = useRef([]);
+  const spitzenRef = useRef();
   const groupRef = useRef();
   const bubbleGroupRef = useRef();
   const lastP = useRef(-1);
@@ -151,11 +152,33 @@ export function LivingNetwork({ progressRef }) {
       const s = 0.6 + rand() * 1.1;
       bubbleGeos.push(transformGeo(sphere, [bx, by, bz], [0, 0, 0], [s, s, s]));
     }
+
+    // Bioluminescent Spitzenkörper (Hyphal Tip Growth Vesicles & Anastomosis Nodes)
+    const spitzenGeos = [];
+    const tipOct = new THREE.OctahedronGeometry(0.0024, 0);
+    for (let k = 0; k < 56; k++) {
+      const ang = (k / 56) * Math.PI * 2 + rand() * 0.25;
+      const rad = 0.035 + Math.pow(rand(), 0.7) * 0.145;
+      const sx = THREE.MathUtils.clamp(15.32 + Math.cos(ang) * rad, 15.10, 15.54);
+      const sy = -0.235 + (rand() - 0.5) * 0.028;
+      const sz = THREE.MathUtils.clamp(1.665 + Math.sin(ang) * rad * 0.78, 1.55, 1.87);
+      spitzenGeos.push(transformGeo(tipOct, [sx, sy, sz]));
+    }
+
     return {
       frameGeo,
-      bubblesGeo: mergeGeometriesFast(bubbleGeos)
+      bubblesGeo: mergeGeometriesFast(bubbleGeos),
+      spitzenGeo: mergeGeometriesFast(spitzenGeos)
     };
   }, []);
+
+  const spitzenMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#9effc8',
+    transparent: true,
+    opacity: 0.0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  }), []);
 
   const primaryMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#fcfaf2',
@@ -205,6 +228,13 @@ export function LivingNetwork({ progressRef }) {
     if (bubbleGroupRef.current) {
       bubbleGroupRef.current.position.z = ((p * 12.0) % 0.04) - 0.02;
     }
+    if (spitzenRef.current) {
+      spitzenRef.current.visible = visibleFraction > 0.25;
+      if (spitzenRef.current.visible) {
+        const pulse = 0.62 + 0.38 * Math.sin(p * 260.0);
+        spitzenMat.opacity = visibleFraction * pulse * 0.92;
+      }
+    }
 
     const N = batchedPrimary.tierCount;
     for (let i = 0; i < N; i++) {
@@ -238,6 +268,9 @@ export function LivingNetwork({ progressRef }) {
       <group ref={bubbleGroupRef}>
         <mesh geometry={macroFrameAndBubbles.bubblesGeo} material={microBubbleMat} />
       </group>
+
+      {/* Bioluminescent Spitzenkörper Hyphal Tip Vesicles & Anastomosis Nodes */}
+      <mesh ref={spitzenRef} geometry={macroFrameAndBubbles.spitzenGeo} material={spitzenMat} visible={false} frustumCulled={false} />
 
       {batchedPrimary.tubes.map((geometry, i) => (
         <mesh

@@ -325,6 +325,47 @@ function ZoneGFermentationHero({ progressRef }) {
       ));
     });
 
+    // Analog Pressure Manometer Gauges (Basınç Saatleri) on the Top Head & Manifold Pipes
+    const gaugeSpecs = [
+      { x: 24.32, y: -0.62, z: 3.76 },
+      { x: 25.55, y: -0.45, z: 3.82 },
+      { x: 23.35, y: -0.44, z: 2.65 }
+    ];
+    for (const g of gaugeSpecs) {
+      // Stainless stem & dial bezel facing -Y (camera side)
+      mirrorList.push(transformGeo(new THREE.CylinderGeometry(0.016, 0.016, 0.09, 8), [g.x, g.y + 0.03, g.z - 0.05], [Math.PI / 2, 0, 0]));
+      mirrorList.push(transformGeo(new THREE.CylinderGeometry(0.088, 0.088, 0.036, 18), [g.x, g.y, g.z], [0, 0, 0]));
+      // Dark indicator needle inside the pressure gauge
+      boltList.push(transformGeo(new THREE.BoxGeometry(0.055, 0.008, 0.008), [g.x + 0.012, g.y - 0.020, g.z + 0.01], [0, 0.65, 0]));
+    }
+
+    // Spoked Process Valve Handwheels (Vana Volanları) on Manifold Lines
+    const wheelSpecs = [
+      { x: 23.35, y: -0.52, z: 2.15, rotX: 0 },
+      { x: 23.35, y: -0.52, z: 3.25, rotX: 0 },
+      { x: 26.25, y: 0.02, z: 4.45, rotX: Math.PI / 2 },
+      { x: 24.15, y: -0.82, z: 1.32, rotX: 0 }
+    ];
+    for (const w of wheelSpecs) {
+      sensorCopperList.push(transformGeo(new THREE.TorusGeometry(0.105, 0.014, 8, 18), [w.x, w.y, w.z], [Math.PI / 2 + w.rotX, 0, 0]));
+      sensorCopperList.push(transformGeo(new THREE.CylinderGeometry(0.010, 0.010, 0.20, 6), [w.x, w.y, w.z], [w.rotX, 0, Math.PI / 2]));
+      sensorCopperList.push(transformGeo(new THREE.CylinderGeometry(0.010, 0.010, 0.20, 6), [w.x, w.y, w.z], [Math.PI / 2 + w.rotX, 0, 0]));
+      mirrorList.push(transformGeo(new THREE.CylinderGeometry(0.018, 0.018, 0.14, 8), [w.x, w.y + 0.07, w.z]));
+    }
+
+    // Sanitary Sampling Spigot Valve (Numune Alma Musluğu) + Stainless Drip Shelf & Sample Flask at [24.15, -0.95, 1.05]
+    mirrorList.push(
+      transformGeo(new THREE.CylinderGeometry(0.022, 0.022, 0.22, 10), [24.15, -0.88, 1.24]),
+      transformGeo(new THREE.CylinderGeometry(0.012, 0.008, 0.09, 8), [24.15, -0.98, 1.19], [Math.PI / 2, 0, 0]),
+      // Perforated stainless sample tray bracket holding the Erlenmeyer flask
+      transformGeo(new THREE.CylinderGeometry(0.14, 0.12, 0.022, 18), [24.15, -0.98, 0.92], [Math.PI / 2, 0, 0]),
+      // Conical Erlenmeyer sample flask neck & base sitting under the sampling valve
+      transformGeo(new THREE.ConeGeometry(0.095, 0.16, 18), [24.15, -0.98, 1.01], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.028, 0.032, 0.07, 14), [24.15, -0.98, 1.11], [Math.PI / 2, 0, 0])
+    );
+    // Golden sample broth inside the Erlenmeyer flask
+    sensorCopperList.push(transformGeo(new THREE.ConeGeometry(0.088, 0.10, 16), [24.15, -0.98, 0.985], [Math.PI / 2, 0, 0]));
+
     // Access staircase
     const stepBox = new THREE.BoxGeometry(0.22, 0.82, 0.035);
     for (let s = 0; s < 7; s++) {
@@ -422,6 +463,13 @@ function ZoneGFermentationHero({ progressRef }) {
         [pr.x, pr.y, pr.zTop - 0.04],
         [Math.PI / 2, 0, 0]
       ));
+      // Coiled sensor transmitter cable curving from probe head into top junction manifold
+      const cableCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(pr.x, pr.y, pr.zTop + 0.02),
+        new THREE.Vector3(pr.x + (pr.x < 25 ? -0.10 : 0.10), pr.y - 0.08, pr.zTop + 0.22),
+        new THREE.Vector3(25.0 + (pr.x < 25 ? -0.22 : 0.22), 0.0, pr.zTop + 0.34)
+      ]);
+      boltList.push(new THREE.TubeGeometry(cableCurve, 10, 0.008, 5, false));
     }
 
     // ============================================================================
@@ -821,6 +869,31 @@ function ZoneHOptimizationHero({ progressRef }) {
     yellowChalkList.push(chalkStroke([[30.84, 1.81], [30.88, 1.76], [30.96, 1.85]], 0.0045));
     whiteChalkList.push(chalkStroke([[31.02, 1.80], [31.42, 1.80]], 0.0042));
 
+    // Coral-Pink Chalk Connection Arrows linking the Frame Post-it Notes to the Chalkboard Diagrams
+    pinkChalkList.push(chalkStroke([[28.59, 2.58], [28.68, 2.52], [28.74, 2.45]], 0.0038));
+    pinkChalkList.push(chalkStroke([[28.59, 2.24], [28.82, 2.26], [29.02, 2.34]], 0.0038));
+    pinkChalkList.push(chalkStroke([[29.22, 1.68], [29.48, 1.78], [29.74, 1.86]], 0.0038));
+    pinkChalkList.push(chalkStroke([[30.18, 1.68], [30.26, 2.05], [30.32, 2.38]], 0.0038));
+
+    // Hand-written 3D Chalk Glyphs ("O2", "pH", "OPT") on the Chalkboard
+    // "O2" glyph near beaker (x=29.15, z=2.04)
+    yellowChalkList.push(chalkStroke([[29.14, 2.06], [29.17, 2.09], [29.20, 2.06], [29.17, 2.03], [29.14, 2.06]], 0.0032));
+    yellowChalkList.push(chalkStroke([[29.23, 2.05], [29.26, 2.05], [29.23, 2.02], [29.27, 2.02]], 0.0028));
+    // "OPT" glyph above optimal harvest circle (x=30.22, z=2.60)
+    pinkChalkList.push(chalkStroke([[30.20, 2.60], [30.23, 2.64], [30.26, 2.60], [30.23, 2.57], [30.20, 2.60]], 0.0032));
+    pinkChalkList.push(chalkStroke([[30.29, 2.57], [30.29, 2.64], [30.33, 2.62], [30.29, 2.60]], 0.0032));
+    pinkChalkList.push(chalkStroke([[30.36, 2.64], [30.42, 2.64]], 0.0032));
+    pinkChalkList.push(chalkStroke([[30.39, 2.57], [30.39, 2.64]], 0.0032));
+
+    // Accumulated White & Yellow Chalk Dust Piles along the wooden chalk tray (z = trayZ)
+    const dustMound = new THREE.DodecahedronGeometry(0.022, 0);
+    for (const dx of [28.88, 29.38, 29.88, 30.45, 30.92, 31.28]) {
+      whiteChalkList.push(transformGeo(dustMound, [dx, by - 0.075, trayZ - 0.006], [0, dx * 2, 0], [1.8, 0.7, 0.35]));
+    }
+    for (const dx of [29.78, 30.82]) {
+      yellowChalkList.push(transformGeo(dustMound, [dx, by - 0.078, trayZ - 0.005], [0, dx, 0], [1.4, 0.6, 0.30]));
+    }
+
     // ============================================================================
     // 3. COLORFUL POST-IT STICKY NOTES (ON CHALKBOARD FRAME & SCATTERED ON DESK)
     // ============================================================================
@@ -974,6 +1047,73 @@ function ZoneHOptimizationHero({ progressRef }) {
       inkScribbleList.push(transformGeo(deskPenTipGeo, [tipX, tipY, pz], [0, 0, p.rotZ]));
     }
 
+    // ============================================================================
+    // 6. EXTRA SCIENTIST DESK MICRO-DETAILS: STEAMING COFFEE MUG, EYEGLASSES,
+    //    PRECISION MICROPIPETTE + 96-TIP RACK BOX & LIVE OYSTER SPECIMEN JAR
+    // ============================================================================
+
+    // A. Steaming Ceramic Coffee Mug (Kahve Kupası) at [31.18, -0.42, deskZ]
+    const mugX = 31.18, mugY = -0.42;
+    scopeBodyList.push(transformGeo(new THREE.CylinderGeometry(0.044, 0.040, 0.098, 18), [mugX, mugY, deskZ + 0.049], [Math.PI / 2, 0, 0]));
+    scopeBodyList.push(transformGeo(new THREE.TorusGeometry(0.028, 0.0065, 8, 16, Math.PI), [mugX + 0.042, mugY, deskZ + 0.050], [Math.PI / 2, 0, -Math.PI / 2]));
+    // Dark espresso coffee surface inside mug
+    inkScribbleList.push(transformGeo(new THREE.CylinderGeometry(0.039, 0.039, 0.004, 16), [mugX, mugY, deskZ + 0.090], [Math.PI / 2, 0, 0]));
+    // 3 Curling wisps of warm steam rising above the coffee mug
+    for (let sw = 0; sw < 3; sw++) {
+      const sxOff = (sw - 1) * 0.014;
+      const steamCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(mugX + sxOff, mugY, deskZ + 0.105),
+        new THREE.Vector3(mugX + sxOff + 0.010, mugY - 0.008, deskZ + 0.145),
+        new THREE.Vector3(mugX + sxOff - 0.008, mugY + 0.008, deskZ + 0.185),
+        new THREE.Vector3(mugX + sxOff + 0.006, mugY, deskZ + 0.225)
+      ]);
+      whiteChalkList.push(new THREE.TubeGeometry(steamCurve, 8, 0.0022, 4, false));
+    }
+
+    // B. Scientist's Wire-Rim Eyeglasses (Gözlük) resting next to the open notebook at [30.02, -0.42, deskZ]
+    const glX = 30.02, glY = -0.42;
+    scopeBrassList.push(
+      transformGeo(new THREE.TorusGeometry(0.028, 0.0022, 6, 18), [glX - 0.034, glY, deskZ + 0.004], [0.08, 0, 0.22]),
+      transformGeo(new THREE.TorusGeometry(0.028, 0.0022, 6, 18), [glX + 0.034, glY + 0.014, deskZ + 0.004], [0.08, 0, 0.22]),
+      // Nose bridge & folded temple arms
+      transformGeo(new THREE.BoxGeometry(0.018, 0.0025, 0.0025), [glX, glY + 0.007, deskZ + 0.005], [0, 0, 0.22]),
+      transformGeo(new THREE.BoxGeometry(0.0025, 0.11, 0.003), [glX - 0.055, glY + 0.052, deskZ + 0.005], [0, 0, -0.15]),
+      transformGeo(new THREE.BoxGeometry(0.0025, 0.11, 0.003), [glX + 0.048, glY + 0.068, deskZ + 0.005], [0, 0, 0.45])
+    );
+
+    // C. Precision Single-Channel Micropipette & Open 200 µL Tip Box Rack at [28.56, -0.48, deskZ]
+    const pipX = 28.68, pipY = -0.42;
+    // Micropipette ergonomic white body, blue dosing plunger & dark tip cone resting on a stainless stand
+    scopeBodyList.push(transformGeo(new THREE.CylinderGeometry(0.011, 0.009, 0.14, 12), [pipX, pipY, deskZ + 0.028], [0.18, 0, -0.45]));
+    postBlueList.push(transformGeo(new THREE.CylinderGeometry(0.008, 0.006, 0.035, 10), [pipX + 0.038, pipY + 0.072, deskZ + 0.042], [0.18, 0, -0.45]));
+    scopeDarkList.push(transformGeo(new THREE.ConeGeometry(0.008, 0.065, 10), [pipX - 0.042, pipY - 0.078, deskZ + 0.012], [-Math.PI + 0.18, 0, 0.45]));
+    // Pipette Tip Rack Box at [28.48, -0.60, deskZ]
+    const rackX = 28.48, rackY = -0.60;
+    scopeDarkList.push(transformGeo(new THREE.BoxGeometry(0.13, 0.095, 0.042), [rackX, rackY, deskZ + 0.021], [0, 0, 0.12]));
+    postYellowList.push(transformGeo(new THREE.BoxGeometry(0.122, 0.088, 0.006), [rackX, rackY, deskZ + 0.044], [0, 0, 0.12]));
+    const tipPin = new THREE.ConeGeometry(0.0038, 0.014, 6);
+    for (let tr = 0; tr < 3; tr++) {
+      for (let tc = 0; tc < 5; tc++) {
+        postYellowList.push(transformGeo(
+          tipPin,
+          [rackX - 0.040 + tc * 0.020, rackY - 0.022 + tr * 0.022, deskZ + 0.052],
+          [Math.PI / 2, 0, 0]
+        ));
+      }
+    }
+
+    // D. Sealed Specimen Jar with Live Miniature Oyster Mushroom Bouquet at [29.36, -0.34, deskZ]
+    const jarX = 29.36, jarY = -0.34;
+    scopeBrassList.push(transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 0.018, 18), [jarX, jarY, deskZ + 0.132], [Math.PI / 2, 0, 0]));
+    postMintList.push(transformGeo(new THREE.CylinderGeometry(0.048, 0.048, 0.022, 18), [jarX, jarY, deskZ + 0.012], [Math.PI / 2, 0, 0]));
+    // Miniature oyster mushroom caps & stems growing inside the specimen jar on the scientist's desk!
+    paperList.push(
+      transformGeo(new THREE.CylinderGeometry(0.008, 0.011, 0.055, 8), [jarX, jarY, deskZ + 0.048], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.SphereGeometry(0.032, 12, 8), [jarX - 0.006, jarY - 0.008, deskZ + 0.078], [0.2, 0, 0], [1.2, 1.0, 0.32]),
+      transformGeo(new THREE.SphereGeometry(0.024, 10, 8), [jarX + 0.014, jarY + 0.006, deskZ + 0.062], [-0.15, 0.2, 0], [1.1, 0.95, 0.30]),
+      transformGeo(new THREE.SphereGeometry(0.018, 10, 8), [jarX - 0.016, jarY + 0.010, deskZ + 0.052], [0.1, -0.2, 0], [1.0, 0.9, 0.28])
+    );
+
     return {
       woodFrameGeo: mergeGeometriesFast(woodFrameList),
       whiteChalkGeo: mergeGeometriesFast(whiteChalkList),
@@ -1039,6 +1179,10 @@ function ZoneHOptimizationHero({ progressRef }) {
       <mesh position={[29.02, -0.555, 1.425]}>
         <circleGeometry args={[0.009, 16]} />
         <meshBasicMaterial color="#4ad698" />
+      </mesh>
+      {/* Borosilicate Glass Cylinder of the Live Oyster Mushroom Specimen Jar on the Desk */}
+      <mesh position={[29.36, -0.34, 1.262]} rotation={[Math.PI / 2, 0, 0]} material={slideGlassMat}>
+        <cylinderGeometry args={[0.050, 0.050, 0.125, 18, 1, true]} />
       </mesh>
     </group>
   );

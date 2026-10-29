@@ -284,8 +284,24 @@ function ZoneAMicroscopyHardware({ progressRef }) {
 
     const brassList = [
       transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [2.25, -0.46, 1.185], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.CylinderGeometry(0.016, 0.011, 0.06, 10), [3.30, -0.32, 1.46], [Math.PI / 2, 0, 0])
+      transformGeo(new THREE.CylinderGeometry(0.016, 0.011, 0.06, 10), [3.30, -0.32, 1.46], [Math.PI / 2, 0, 0]),
+      // Precision Optical Micrometer Reticle Rings & Crosshair Scale on the Observation Stage Glass (z = 0.619)
+      transformGeo(new THREE.TorusGeometry(0.38, 0.0022, 6, 36), [1.25, 0, 0.619]),
+      transformGeo(new THREE.TorusGeometry(0.24, 0.0016, 6, 32), [1.25, 0, 0.619]),
+      transformGeo(new THREE.TorusGeometry(0.11, 0.0014, 6, 24), [1.25, 0, 0.619]),
+      transformGeo(new THREE.BoxGeometry(0.76, 0.0018, 0.0012), [1.25, 0, 0.619]),
+      transformGeo(new THREE.BoxGeometry(0.0018, 0.76, 0.0012), [1.25, 0, 0.619])
     ];
+    const tickBox = new THREE.BoxGeometry(0.026, 0.0022, 0.0014);
+    for (let t = 0; t < 16; t++) {
+      const ang = (t / 16) * Math.PI * 2;
+      const rTick = t % 2 === 0 ? 0.365 : 0.23;
+      brassList.push(transformGeo(
+        tickBox,
+        [1.25 + Math.cos(ang) * rTick, Math.sin(ang) * rTick, 0.619],
+        [0, 0, ang]
+      ));
+    }
 
     const glassGeo = transformGeo(new THREE.CylinderGeometry(0.44, 0.44, 0.012, 28), [1.25, 0, 0.612], [Math.PI / 2, 0, 0]);
 
@@ -317,12 +333,25 @@ function ZoneAMicroscopyHardware({ progressRef }) {
 export default function SporeReveal({ progressRef }) {
   const group = useRef();
   const specimenGroup = useRef();
+  const germTubeRef = useRef();
   const halo = useRef();
   const particles = useRef();
   const lastP = useRef(-1);
 
   const geometry = useMemo(() => createHighDetailSporeGeometry(36, 28), []);
   const lightSporeGeo = useMemo(() => createHighDetailSporeGeometry(20, 14), []);
+  // Emerging Germ Tube (Çimlenme Tüpü) sprouting from the spore apiculus [-0.32, 0, -0.82] toward the end of Scene 01
+  const germTubeGeo = useMemo(() => {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-0.28, 0.0, -0.76),
+      new THREE.Vector3(-0.52, -0.06, -1.05),
+      new THREE.Vector3(-0.84, -0.02, -1.28),
+      new THREE.Vector3(-1.18, 0.08, -1.42)
+    ]);
+    const tube = new THREE.TubeGeometry(curve, 14, 0.14, 8, false);
+    const tipSphere = transformGeo(new THREE.SphereGeometry(0.135, 10, 8), [-1.18, 0.08, -1.42]);
+    return mergeGeometriesFast([tube, tipSphere]);
+  }, []);
   const mergedOrganellesGeo = useMemo(() => {
     const innerShell = transformGeo(lightSporeGeo, [0, 0, 0], [0, 0, 0], [0.88, 0.88, 0.88]);
     const nuc = transformGeo(new THREE.IcosahedronGeometry(1, 2), [0.12, 0.05, 0.15], [0, 0, 0], [0.26, 0.28, 0.24]);
@@ -419,6 +448,14 @@ export default function SporeReveal({ progressRef }) {
         SPORE_ANCHOR[2]
       );
     }
+    if (germTubeRef.current) {
+      // Sprout the initial hyphal germ tube during the second half of Scene 01 (t = 0.45 -> 0.95)
+      const sprout = inCoda ? 1.0 : smooth(0.45, 0.92, t);
+      germTubeRef.current.visible = sprout > 0.02;
+      if (germTubeRef.current.visible) {
+        germTubeRef.current.scale.set(sprout, 0.35 + 0.65 * sprout, sprout);
+      }
+    }
     if (halo.current) {
       halo.current.material.opacity = 0.24 * reveal;
       if (specimenGroup.current) {
@@ -444,6 +481,7 @@ export default function SporeReveal({ progressRef }) {
           <mesh geometry={geometry} material={sporeShader} />
           <mesh geometry={mergedOrganellesGeo} material={organelleMat} />
           <mesh geometry={cytoplasmWebGeo} material={cytoplasmMat} />
+          <mesh ref={germTubeRef} geometry={germTubeGeo} material={sporeShader} visible={false} />
         </group>
 
         {/* Luminous Rim Halo */}

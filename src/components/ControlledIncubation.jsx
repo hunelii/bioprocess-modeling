@@ -225,14 +225,31 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
 
     const liqBox = new THREE.BoxGeometry(0.43, 0.70, 0.29);
     const spargerBar = new THREE.CylinderGeometry(0.012, 0.012, 0.36, 8);
+    const statusLedBox = new THREE.BoxGeometry(0.022, 0.012, 0.010);
 
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 5; col++) {
         const cx = COLS_X[col], cy = 0.08, cz = ROWS_Z[row];
         liquidList.push(transformGeo(liqBox, [cx, cy, cz - 0.01]));
         spargerList.push(transformGeo(spargerBar, [cx, cy - 0.08, cz - 0.142], [0, 0, Math.PI / 2]));
+        // Emerald-green chamber aeration status LED indicator at the top front edge of each bio-chamber
+        spargerList.push(transformGeo(statusLedBox, [cx - 0.16, cy - 0.355, cz + 0.145]));
         // Position relative to row center [15.32, 0.08, ROWS_Z[row]] so each row scales cleanly around its shelf center
         rowMassGeos[row].push(transformGeo(singleMass, [cx - 15.32, 0, 0]));
+      }
+    }
+
+    // Dual Vertical Oxygen Rotameter Flowmeter Banks (Debi Ölçer Tüpler) on Left (x=13.28) & Right (x=17.68) Pillars
+    for (const rx of [13.28, 17.68]) {
+      // Stainless rotameter backplate & valve blocks
+      steelList.push(transformGeo(new THREE.BoxGeometry(0.11, 0.035, 0.88), [rx, -1.18, 1.88]));
+      for (const rz of [1.54, 1.88, 2.22]) {
+        // Glass rotameter flow tube
+        liquidList.push(transformGeo(new THREE.CylinderGeometry(0.014, 0.011, 0.24, 10), [rx, -1.21, rz], [Math.PI / 2, 0, 0]));
+        // Glowing emerald O2 float bobbin inside each rotameter tube
+        spargerList.push(transformGeo(new THREE.SphereGeometry(0.011, 8, 6), [rx, -1.21, rz + 0.03]));
+        // Brass/steel needle valve knob at base of each rotameter
+        steelList.push(transformGeo(new THREE.CylinderGeometry(0.016, 0.016, 0.025, 10), [rx, -1.225, rz - 0.13]));
       }
     }
 
@@ -282,6 +299,9 @@ function IncubatorArchitecturalDetailing({ progressRef }) {
       if (m.visible) {
         const s = 0.28 + 0.72 * phase;
         m.scale.set(1, s, s);
+        // Gentle buoyant floating oscillation driven by bottom O2 aeration
+        m.position.z = ROWS_Z[row] + 0.009 * Math.sin(p * 110.0 + row * 2.1);
+        m.rotation.y = 0.022 * Math.cos(p * 85.0 + row * 1.7);
       }
     }
 

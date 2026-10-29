@@ -215,6 +215,7 @@ export function applyPetriMaterials(world) {
 export function PetriLight({ progressRef }) {
   const colonyGroupRef = useRef();
   const rhizomorphMeshRef = useRef();
+  const guttaMeshRef = useRef();
   const lastP = useRef(-1);
 
   const colonyMat = useMemo(() => new THREE.ShaderMaterial({
@@ -236,6 +237,29 @@ export function PetriLight({ progressRef }) {
     metalness: 0.0
   }), []);
 
+  // Golden-amber secondary metabolite exudate droplets (Gutta) forming on mature aerial mycelium
+  const guttaGeo = useMemo(() => {
+    const drops = [];
+    const dropSphere = new THREE.SphereGeometry(0.00085, 8, 6);
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + (i % 3) * 0.22;
+      const r = 0.0045 + (i % 4) * 0.0032;
+      const s = 0.65 + (i % 3) * 0.25;
+      drops.push(transformGeo(dropSphere, [Math.cos(a) * r, Math.sin(a) * r, 0.00065], [0, 0, 0], [s, s, s * 0.78]));
+    }
+    return mergeGeometriesFast(drops);
+  }, []);
+
+  const guttaMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#e89b2d',
+    emissive: '#8c4f08',
+    emissiveIntensity: 0.32,
+    roughness: 0.12,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.88
+  }), []);
+
   const glassRimMat = useMemo(() => createFastGlassMaterial({
     color: '#dceee4', opacity: 0.36, roughness: 0.08, envMapIntensity: 0.9, side: THREE.DoubleSide
   }), []);
@@ -246,12 +270,52 @@ export function PetriLight({ progressRef }) {
 
   const batchedDish = useMemo(() => {
     const [cx, cy, cz] = PETRI_CENTER;
-    const glassGeo = mergeGeometriesFast([
+    const glassList = [
+      // Main Petri dish glass wall & top lip torus
       transformGeo(new THREE.CylinderGeometry(0.0465, 0.046, 0.014, 32, 1, true), [cx, cy, cz + 0.005], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.TorusGeometry(0.0462, 0.0012, 6, 32), [cx, cy, cz + 0.012])
+      transformGeo(new THREE.TorusGeometry(0.0462, 0.0012, 6, 32), [cx, cy, cz + 0.012]),
+      // Stretched Parafilm M sealing band around the Petri dish perimeter
+      transformGeo(new THREE.CylinderGeometry(0.0474, 0.0474, 0.0048, 32, 1, true), [cx, cy, cz + 0.0065], [Math.PI / 2, 0, 0])
+    ];
+    // Micro-condensation droplets inside the glass rim perimeter
+    const condDrop = new THREE.OctahedronGeometry(0.0008, 0);
+    for (let i = 0; i < 20; i++) {
+      const ang = (i / 20) * Math.PI * 2 + 0.15;
+      const cr = 0.036 + (i % 3) * 0.003;
+      glassList.push(transformGeo(condDrop, [cx + Math.cos(ang) * cr, cy + Math.sin(ang) * cr, cz + 0.0115], [0, 0, ang], [1.2, 1.2, 0.4]));
+    }
+
+    // Stack of 3 Spare Sterile Petri Dishes on the benchtop at [4.18, -0.27, 1.258]
+    const sx = 4.18, sy = -0.27, szBase = 1.258;
+    for (let k = 0; k < 3; k++) {
+      const sz = szBase + k * 0.0135;
+      glassList.push(transformGeo(new THREE.CylinderGeometry(0.044, 0.044, 0.012, 24), [sx, sy, sz + 0.006], [Math.PI / 2, 0, 0]));
+      glassList.push(transformGeo(new THREE.TorusGeometry(0.044, 0.001, 6, 24), [sx, sy, sz + 0.012]));
+    }
+
+    // Borosilicate L-Shaped Drigalski Cell Spreader (Cam Yayma Çubuğu) resting on a stainless holder at [4.59, -0.24, 1.264]
+    const spreaderCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(4.56, -0.32, 1.268),
+      new THREE.Vector3(4.58, -0.23, 1.268),
+      new THREE.Vector3(4.585, -0.215, 1.262),
+      new THREE.Vector3(4.625, -0.215, 1.262)
     ]);
-    const steelGeo = transformGeo(new THREE.CylinderGeometry(0.058, 0.064, 0.016, 24), [cx, cy, cz - 0.018], [Math.PI / 2, 0, 0]);
-    return { glassGeo, steelGeo };
+    glassList.push(new THREE.TubeGeometry(spreaderCurve, 14, 0.0022, 6, false));
+
+    const steelList = [
+      // Main Petri dish stainless warming pedestal
+      transformGeo(new THREE.CylinderGeometry(0.058, 0.064, 0.016, 24), [cx, cy, cz - 0.018], [Math.PI / 2, 0, 0]),
+      // Sample ID tag plate on rim ("HNR-01")
+      transformGeo(new THREE.BoxGeometry(0.018, 0.006, 0.0018), [cx - 0.042, cy - 0.022, cz + 0.008], [0, 0, 0.48]),
+      // Spare Petri stack tray base & Drigalski spreader rest rack
+      transformGeo(new THREE.CylinderGeometry(0.048, 0.050, 0.004, 24), [sx, sy, szBase - 0.002], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.BoxGeometry(0.032, 0.010, 0.010), [4.57, -0.26, 1.258])
+    ];
+
+    return {
+      glassGeo: mergeGeometriesFast(glassList),
+      steelGeo: mergeGeometriesFast(steelList)
+    };
   }, []);
 
   useFrame(() => {
@@ -269,6 +333,13 @@ export function PetriLight({ progressRef }) {
       const s = Math.max(0.02, growth);
       rhizomorphMeshRef.current.scale.set(s, s, 0.4 + 0.6 * s);
     }
+    if (guttaMeshRef.current) {
+      const guttaAppear = smooth(0.42, 0.92, growth);
+      guttaMeshRef.current.visible = guttaAppear > 0.02;
+      if (guttaMeshRef.current.visible) {
+        guttaMeshRef.current.scale.setScalar(guttaAppear);
+      }
+    }
   });
 
   return (
@@ -282,6 +353,7 @@ export function PetriLight({ progressRef }) {
           <circleGeometry args={[1, 32]} />
         </mesh>
         <mesh ref={rhizomorphMeshRef} geometry={rhizomorphGeo} material={rhizomorphMat} />
+        <mesh ref={guttaMeshRef} geometry={guttaGeo} material={guttaMat} visible={false} />
       </group>
     </>
   );
