@@ -81,7 +81,6 @@ export function FruitingAtmosphere({ progressRef }) {
     const diffuserGeos = [];
     const mistGeos = [];
     const nozzleCyl = new THREE.CylinderGeometry(0.012, 0.018, 0.042, 8);
-    const mistCone = new THREE.ConeGeometry(0.24, 0.42, 12, 1, true);
     const subPatch = new THREE.DodecahedronGeometry(0.11, 0);
 
     // Overhead shelf grow-light housings + 12 Ultrasonic Humidity Mist Nozzles above each of the 3 fruiting tiers
@@ -96,8 +95,6 @@ export function FruitingAtmosphere({ progressRef }) {
         const ny = Y[c];
         // Ultrasonic misting nozzle on the overhead bar
         steelGeos.push(transformGeo(nozzleCyl, [nx, -0.05, zBar - 0.035], [Math.PI / 2, 0, 0]));
-        // Downward-drifting translucent humidity mist plume & spore veil
-        mistGeos.push(transformGeo(mistCone, [nx, ny * 0.55, zBar - 0.24], [Math.PI / 2, 0, 0]));
 
         // White colonized mycelial mat & surface veins spreading across the dark substrate tray around each cluster pair
         for (const pairOff of [-0.085, 0.09]) {
@@ -121,16 +118,13 @@ export function FruitingAtmosphere({ progressRef }) {
     const p = progressRef.current;
     const active = p >= 0.64;
     if (groupRef.current) groupRef.current.visible = active;
-    if (active && mistRef.current) {
-      mistRef.current.position.z = -((p * 8.0) % 0.035);
-    }
   });
 
   return (
     <group ref={groupRef} name="ZONE_F_CHAMBER_ATMOSPHERE_AND_LIGHTING" visible={false}>
       <mesh geometry={batched.steelGeo} material={steelMat} />
       <mesh geometry={batched.diffuserGeo} material={growLightDiffuserMat} />
-      <mesh ref={mistRef} geometry={batched.mistGeo} material={mistMat} />
+      {/* Translucent mist cones removed per user request for crisp visibility */}
     </group>
   );
 }

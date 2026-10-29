@@ -112,23 +112,26 @@ function taperTube(points, rBot, rTop, tubSeg = 8, radSeg = 6) {
 // Shared cap primitives (unit radius)
 // ---------------------------------------------------------------------------
 // Pleurotus spathulate / kidney-fan shell, attachment at origin, fanning toward -Y
-function oysterShell(ruffleAmp = 1, segA = 18, segR = 8) {
+function oysterShell(ruffleAmp = 1, segA = 26, segR = 12) {
   const vertices = [0, 0, 0.004], faces = [];
   for (let j = 1; j <= segR; j++) {
     const u = j / segR;
-    const edge = Math.pow(u, 2.2);
+    const edge = Math.pow(u, 2.0);
     for (let i = 0; i <= segA; i++) {
       const s = i / segA;
       const alpha = (s - 0.5) * 4.36;
-      const reach = 0.72 + 0.34 * Math.cos(alpha * 0.65) - 0.08 * Math.cos(alpha * 2.0) + 0.03 * Math.sin(alpha * 5.0);
+      // High-resolution asymmetric kidney-fan lobe reach with radial striations
+      const reach = 0.72 + 0.34 * Math.cos(alpha * 0.65) - 0.08 * Math.cos(alpha * 2.0) + 0.04 * Math.sin(alpha * 5.0) - 0.015 * Math.cos(alpha * 11.0);
       const r = u * reach;
       const px = r * Math.sin(alpha * 0.72) * 0.92;
       const py = -r * (0.28 + 0.72 * Math.cos(alpha * 0.52));
       const funnel = -0.10 * Math.exp(-u * 5.0);
-      const arch = 0.26 * Math.sin(u * PI * 0.84);
+      const arch = 0.28 * Math.sin(u * PI * 0.84);
+      // Concentric growth rings and delicate undulations on the pileus margin
+      const concentricRidge = 0.008 * Math.sin(u * 32.0) * (1.0 - Math.exp(-u * 3.0));
       const wave = 0.05 * ruffleAmp * edge * (Math.sin(alpha * 5.0 + 0.3) + 0.45 * Math.cos(alpha * 9.0 * ruffleAmp));
       const lip = -0.09 * Math.pow(u, 3.8);
-      vertices.push(px, py, 0.02 + funnel + arch + wave + lip);
+      vertices.push(px, py, 0.02 + funnel + arch + concentricRidge + wave + lip);
     }
   }
   const stride = segA + 1;
@@ -144,19 +147,21 @@ function oysterShell(ruffleAmp = 1, segA = 18, segR = 8) {
   return g;
 }
 
-// Decurrent radial lamellae under an oyster shell
-function oysterGills(numGills = 16) {
-  const pos = [], idx = [], steps = 4;
+// Decurrent radial lamellae under an oyster shell with fine branching anastomoses
+function oysterGills(numGills = 28) {
+  const pos = [], idx = [], steps = 6;
   for (let k = 0; k < numGills; k++) {
-    const alpha = ((k + 0.5) / numGills - 0.5) * 4.1;
+    const alpha = ((k + 0.5) / numGills - 0.5) * 4.15;
     const reach = 0.72 + 0.34 * Math.cos(alpha * 0.65) - 0.08 * Math.cos(alpha * 2.0);
+    const isInterveined = k % 2 === 1;
+    const startU = isInterveined ? 0.35 : 0.04;
     for (let j = 0; j <= steps; j++) {
-      const u = 0.05 + (j / steps) * 0.9;
+      const u = startU + (j / steps) * (0.94 - startU);
       const r = u * reach;
       const px = r * Math.sin(alpha * 0.72) * 0.92;
       const py = -r * (0.28 + 0.72 * Math.cos(alpha * 0.52));
-      const zTop = 0.005 - 0.10 * Math.exp(-u * 5) + 0.25 * Math.sin(u * PI * 0.84) - 0.08 * Math.pow(u, 3.8);
-      const depth = 0.09 * Math.sin(u * PI) + 0.05 * (1 - u);
+      const zTop = 0.005 - 0.10 * Math.exp(-u * 5) + 0.27 * Math.sin(u * PI * 0.84) - 0.08 * Math.pow(u, 3.8);
+      const depth = (0.10 * Math.sin(u * PI) + 0.06 * (1 - u)) * (isInterveined ? 0.65 : 1.0);
       pos.push(px, py, zTop, px, py, zTop - depth);
     }
   }
@@ -343,18 +348,19 @@ const BUILDERS = {
       move(new THREE.IcosahedronGeometry(0.028, 1), [C[0] + 0.036, C[1] + 0.012, C[2] + 0.015], [1, 1, 0.8]),
       taperTube([[0, -r * 0.7, C[2]], [0, C[1] * 0.7, C[2]], C], 0.02, 0.026, 3, 8)
     ];
-    const spineUnit = transformGeo(new THREE.ConeGeometry(0.0028, 1, 5), [0, 0, -0.5], [-PI / 2, 0, 0]); // apex at z = -1, base at 0
+    // Fine tapered spine teeth (420 cascading icicles)
+    const spineUnit = transformGeo(new THREE.ConeGeometry(0.0018, 1, 5), [0, 0, -0.5], [-PI / 2, 0, 0]); // apex at z = -1, base at 0
     const spines = [];
-    for (let i = 0; i < 190; i++) {
+    for (let i = 0; i < 420; i++) {
       // Sample lower & front hemisphere of the globose body
       const th = rand() * PI * 2;
-      const ph = PI * (0.38 + rand() * 0.6);
+      const ph = PI * (0.34 + rand() * 0.64);
       const n = new THREE.Vector3(Math.sin(ph) * Math.cos(th), Math.sin(ph) * Math.sin(th) * 0.95, Math.cos(ph));
-      if (n.y > 0.55) continue;
+      if (n.y > 0.52) continue;
       const p = [C[0] + n.x * 0.054, C[1] + n.y * 0.046, C[2] + n.z * 0.040];
-      const down = THREE.MathUtils.clamp(-n.z * 0.8 + 0.4, 0.2, 1.0);
-      const len = 0.016 + down * (0.022 + rand() * 0.03);
-      const dir = new THREE.Vector3(-n.x * 0.35, -n.y * 0.35, 1.0).normalize(); // spine apex (local −Z) hangs down & outward
+      const down = THREE.MathUtils.clamp(-n.z * 0.85 + 0.45, 0.25, 1.0);
+      const len = 0.018 + down * (0.028 + rand() * 0.038);
+      const dir = new THREE.Vector3(-n.x * 0.32, -n.y * 0.32, 1.0).normalize(); // spine apex (local −Z) hangs down & outward
       spines.push(orient(spineUnit, p, [dir.x, dir.y, dir.z], [1, 1, len], rand() * PI));
     }
     return {
@@ -371,17 +377,18 @@ const BUILDERS = {
     const bh = 0.10;
     const top = [0, 0, bh];
     const stalks = [], caps = [];
-    const stalkUnit = cylZ(0.0019, 0.0024, 1, 5);
-    const capUnit = move(new THREE.SphereGeometry(1, 8, 5, 0, PI * 2, 0, PI / 2), [0, 0, 0], [1, 0.65, 1], [PI / 2, 0, 0]);
-    for (let i = 0; i < 56; i++) {
-      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * 0.03;
+    const stalkUnit = cylZ(0.0016, 0.0022, 1, 6);
+    const capUnit = move(new THREE.SphereGeometry(1, 10, 6, 0, PI * 2, 0, PI / 2), [0, 0, 0], [1, 0.65, 1], [PI / 2, 0, 0]);
+    // 95 slender thread-like stems bundled tightly inside the microclimate collar
+    for (let i = 0; i < 95; i++) {
+      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * 0.032;
       const start = [Math.cos(a) * rr, Math.sin(a) * rr, bh];
-      const spread = 0.05 + rr * 4.5;
+      const spread = 0.04 + rr * 4.0;
       const dir = [Math.cos(a) * spread, Math.sin(a) * spread, 1];
-      const len = 0.075 + rand() * 0.035;
+      const len = 0.078 + rand() * 0.038;
       const dn = new THREE.Vector3(...dir).normalize();
       stalks.push(orient(stalkUnit, start, dir, [1, 1, len]));
-      const R = 0.0045 + rand() * 0.003;
+      const R = 0.0038 + rand() * 0.0028;
       caps.push(orient(capUnit, [start[0] + dn.x * len, start[1] + dn.y * len, start[2] + dn.z * len], dir, [R, R, R]));
     }
     return {
@@ -500,25 +507,26 @@ const BUILDERS = {
   cordyceps_militaris: () => {
     const rand = rng(1111);
     const jr = 0.058, jh = 0.125, bedH = 0.042;
-    const bed = [cylZ(jr - 0.004, jr - 0.004, bedH, 22)];
-    for (let i = 0; i < 26; i++) {
-      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * (jr - 0.012);
-      bed.push(move(new THREE.SphereGeometry(0.0035, 5, 4), [Math.cos(a) * rr, Math.sin(a) * rr, bedH], [1.8, 1, 0.8], [0, 0, a]));
+    const bed = [cylZ(jr - 0.004, jr - 0.004, bedH, 24)];
+    for (let i = 0; i < 42; i++) {
+      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * (jr - 0.010);
+      bed.push(move(new THREE.SphereGeometry(0.0035, 6, 5), [Math.cos(a) * rr, Math.sin(a) * rr, bedH], [1.8, 1, 0.8], [0, 0, a]));
     }
     const stalks = [], heads = [];
-    const headUnit = transformGeo(new THREE.CapsuleGeometry(1, 2.4, 3, 7), [0, 0, 1.7], [PI / 2, 0, 0]);
-    for (let i = 0; i < 30; i++) {
-      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * (jr - 0.014);
+    const headUnit = transformGeo(new THREE.CapsuleGeometry(1, 2.8, 5, 9), [0, 0, 1.8], [PI / 2, 0, 0]);
+    // 52 vibrant orange club-shaped stromata rising from the fortified brown-rice grain bed
+    for (let i = 0; i < 52; i++) {
+      const a = rand() * PI * 2, rr = Math.sqrt(rand()) * (jr - 0.012);
       const s = [Math.cos(a) * rr, Math.sin(a) * rr, bedH];
-      const lean = 0.06 + rand() * 0.18;
-      const len = 0.045 + rand() * 0.04;
-      const la = a + (rand() - 0.5) * 1.2;
-      const tip = [s[0] + Math.cos(la) * lean * len, s[1] + Math.sin(la) * lean * len, s[2] + len * 0.72];
+      const lean = 0.05 + rand() * 0.19;
+      const len = 0.048 + rand() * 0.044;
+      const la = a + (rand() - 0.5) * 1.3;
+      const tip = [s[0] + Math.cos(la) * lean * len, s[1] + Math.sin(la) * lean * len, s[2] + len * 0.74];
       const mid = [s[0] + Math.cos(la) * lean * len * 0.3, s[1] + Math.sin(la) * lean * len * 0.3, s[2] + len * 0.38];
-      stalks.push(taperTube([s, mid, tip], 0.0024, 0.0028, 6, 5));
+      stalks.push(taperTube([s, mid, tip], 0.0022, 0.0027, 6, 6));
       const d = [tip[0] - mid[0], tip[1] - mid[1], tip[2] - mid[2]];
-      const hr = 0.0034 + rand() * 0.0012;
-      heads.push(orient(headUnit, tip, d, [hr, hr, hr * (1.6 + rand() * 1.4)]));
+      const hr = 0.0033 + rand() * 0.0013;
+      heads.push(orient(headUnit, tip, d, [hr, hr, hr * (1.7 + rand() * 1.5)]));
     }
     return {
       base: mergeGeometriesFast(bed),
