@@ -53,7 +53,11 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
       const legacyMacro = name.startsWith('E_LIVING_NETWORK_');
       const legacyFruit = name.startsWith('F_PLEUROTUS_');
       const legacyExpansion = /^D_(?:biomass|fungal_clump)_/.test(name);
-      const legacyIncubation = name.startsWith('E_colonized_material_');
+      // Hide legacy rectangular shoebox containers & flat backing plate in Zone E so our cylindrical Airlift bioreactors,
+      // orbital shaker Erlenmeyer flasks, and solid-state colonization jars replace them cleanly!
+      const legacyIncubation = name.startsWith('E_colonized_material_')
+        || name.startsWith('E_culture_container_')
+        || name === 'E_sample_2_1_substrate_back';
       // Hide opaque G_reactor_shell & fake porthole disc so the detailed glass fermenter interior is 100% visible
       const legacyFerment = name.startsWith('G_suspended_biomass')
         || name === 'G_reactor_shell'

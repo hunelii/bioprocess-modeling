@@ -250,6 +250,10 @@ export function upgradeFactoryMaterials(world) {
       object.material = sharedBenchPlinthMat;
     } else if (name.startsWith('F_substrate_tray_')) {
       object.material = sharedTrayMat;
+    } else if (name.startsWith('E_') && /(rack|post|door_frame|cabinet_bottom|sensor_panel)/i.test(name)) {
+      object.material = sharedFrameMat;
+    } else if (name === 'E_rear_wall') {
+      object.material = sharedColumnMat;
     } else if (name.startsWith('F_') && /(frame|support|rail|enclosure|post|roof)/i.test(name)) {
       object.material = sharedFrameMat;
     } else if (name.startsWith('G_') && /(body|tank|manifold|shell|steel|rim|skirt|motor|leg|outlet|sensor|pillar)/i.test(name)) {
