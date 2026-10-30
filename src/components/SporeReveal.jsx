@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { clamp01 } from '../data/camera.js';
 import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
 import FungalCellAnatomy, {
+  createHunerFungalShell,
   createDeformedSporeHemisphere,
   deformSporeVertex
 } from './FungalCellAnatomy.jsx';
@@ -337,21 +338,21 @@ export default function SporeReveal({ progressRef, handoffRef }) {
   const particles = useRef();
   const lastP = useRef(-1);
 
-  // Basidiospore outer shell split into matching back cup & hinged cutaway front cap
-  const backShellGeo = useMemo(() => createDeformedSporeHemisphere(false, 48, 28), []);
-  const frontShellGeo = useMemo(() => createDeformedSporeHemisphere(true, 48, 28), []);
-  const lightSporeGeo = useMemo(() => createDeformedSporeHemisphere(false, 20, 14), []);
+  // Basidiospore outer shell: exactly identical to Huner Biofoundry's horizontal FungalCell
+  const backShellGeo = useMemo(() => createHunerFungalShell(false, 64, 48), []);
+  const frontShellGeo = useMemo(() => createHunerFungalShell(true, 64, 48), []);
+  const lightSporeGeo = useMemo(() => createHunerFungalShell(false, 32, 24), []);
 
-  // Emerging Germ Tube (Çimlenme Tüpü) sprouting from the spore apiculus hilum [-0.28, 0, -0.76] toward Scene 02
+  // Emerging Germ Tube sprouting from the cell's polar hilum towards Scene 02
   const germTubeGeo = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.28, 0.0, -0.76),
-      new THREE.Vector3(-0.52, -0.06, -1.05),
-      new THREE.Vector3(-0.84, -0.02, -1.28),
-      new THREE.Vector3(-1.18, 0.08, -1.42)
+      new THREE.Vector3(-1.55, -0.22, 0.0),
+      new THREE.Vector3(-2.15, -0.42, -0.35),
+      new THREE.Vector3(-2.85, -0.58, -0.75),
+      new THREE.Vector3(-3.55, -0.65, -1.15)
     ]);
-    const tube = new THREE.TubeGeometry(curve, 14, 0.14, 8, false);
-    const tipSphere = transformGeo(new THREE.SphereGeometry(0.135, 10, 8), [-1.18, 0.08, -1.42]);
+    const tube = new THREE.TubeGeometry(curve, 16, 0.12, 8, false);
+    const tipSphere = transformGeo(new THREE.SphereGeometry(0.12, 10, 8), [-3.55, -0.65, -1.15]);
     return mergeGeometriesFast([tube, tipSphere]);
   }, []);
 
@@ -443,16 +444,20 @@ export default function SporeReveal({ progressRef, handoffRef }) {
     frontSporeShader.uniforms.uOpacity.value = Math.max(0.0, 1.0 - opening * 1.35);
 
     if (frontShellRef.current) {
-      frontShellRef.current.position.set(0, -opening * 0.38, -opening * 0.14);
-      frontShellRef.current.rotation.set(-opening * 0.78, 0, 0);
+      // Smooth hinged cutaway opening along the depth axis (towards viewer)
+      frontShellRef.current.position.set(0, 0, opening * 0.42);
+      frontShellRef.current.rotation.set(0, opening * 0.35, 0);
       frontShellRef.current.visible = opening < 0.985;
     }
 
     if (specimenGroup.current) {
+      // Rotation maps Huner's horizontal coordinate frame (XY horizontal, Z depth) to Bioprocess camera view
+      // At handoff (t=0): exact match to Huner's closed cell [pitch: +0.18, yaw: -0.32, roll: -0.18]
+      // During Station 01: gentle orbital inspection
       specimenGroup.current.rotation.set(
-        -0.24,
-        0.22 + t * 0.32,
-        -0.36 + t * 0.24
+        Math.PI / 2 + 0.18 - opening * 0.08,
+        -0.32 + t * 0.35,
+        -0.18 + t * 0.15
       );
       specimenGroup.current.position.set(
         SPORE_ANCHOR[0] + t * 0.08,
@@ -489,7 +494,8 @@ export default function SporeReveal({ progressRef, handoffRef }) {
           <cylinderGeometry args={[0.16, 0.48, 2.75, 28, 1, true]} />
         </mesh>
 
-        <group ref={specimenGroup} position={SPORE_ANCHOR} scale={[0.128, 0.082, 0.168]}>
+        {/* Hero Cell Model: Exactly identical horizontal geometry matching Huner Biofoundry */}
+        <group ref={specimenGroup} position={SPORE_ANCHOR} scale={[0.1045, 0.1045, 0.1045]}>
           {/* 1. Permanent Back Cup Chitin Shell */}
           <mesh geometry={backShellGeo} material={sporeShader} />
 
@@ -499,12 +505,12 @@ export default function SporeReveal({ progressRef, handoffRef }) {
           {/* 3. Authentic Huner Biofoundry FungalCell Organelle World */}
           <FungalCellAnatomy progressRef={progressRef} />
 
-          {/* 4. Hyphal Germ Tube sprouting from Apiculus Hilum */}
+          {/* 4. Hyphal Germ Tube sprouting from polar hilum */}
           <mesh ref={germTubeRef} geometry={germTubeGeo} material={sporeShader} visible={false} />
         </group>
 
         {/* Luminous Rim Halo */}
-        <mesh ref={halo} geometry={lightSporeGeo} position={SPORE_ANCHOR} scale={[0.144, 0.094, 0.186]}>
+        <mesh ref={halo} geometry={lightSporeGeo} position={SPORE_ANCHOR} scale={[0.1128, 0.1128, 0.1128]}>
           <meshBasicMaterial color="#b9f3c4" transparent opacity={0} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
 
