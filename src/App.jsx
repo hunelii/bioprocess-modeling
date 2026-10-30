@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import FactoryScene from './components/FactoryScene.jsx';
@@ -11,6 +11,13 @@ import LivingNetworkOverlay from './components/LivingNetworkOverlay.jsx';
 import {FruitingOverlay} from './components/FruitingOverlay.jsx';
 import { STAGES, stageAt, clamp01 } from './data/camera.js';
 import copy from './data/content.json';
+import {
+  isEmbedMode,
+  isAllowedOrigin,
+  validateHunerMessage,
+  sendBioprocessReady,
+  sendBioprocessError
+} from './data/embedContract.js';
 
 gsap.registerPlugin(ScrollTrigger);
 const STAGE_COUNT = STAGES.length;
@@ -47,11 +54,16 @@ const BASE = import.meta.env.BASE_URL || './';
 const poster = (index, coda) => coda ? `${BASE}assets/posters/master.webp` : `${BASE}assets/posters/${String(index + 1).padStart(2, '0')}.webp`;
 
 export default function App() {
+  const isEmbed = useMemo(() => isEmbedMode(), []);
+
   const storyRef = useRef(null);
   const panelRef = useRef(null);
   const triggerRef = useRef(null);
   const progressRef = useRef(0);
   const targetProgressRef = useRef(0);
+  const handoffRef = useRef(isEmbed ? 0 : 1);
+  const targetHandoffRef = useRef(isEmbed ? 0 : 1);
+  const isVisibleRef = useRef(true);
   const registerInvalidate = useRef(null);
   const trackBarRef = useRef(null);
   const percentTextRef = useRef(null);
@@ -76,7 +88,60 @@ export default function App() {
   const coda = uiProgress > .982;
   const stage = coda ? null : STAGES[stageIndex];
 
-  useEffect(() => { setCanRender(webglSupport()); }, []);
+  // Embed Mode setup: disable page scroll, lock body overflow & dimensions
+  useEffect(() => {
+    if (!isEmbed || typeof document === 'undefined') return;
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.height = '100vh';
+    document.documentElement.style.width = '100vw';
+    document.body.style.overflow = 'hidden';
+    document.body.style.height = '100vh';
+    document.body.style.width = '100vw';
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+  }, [isEmbed]);
+
+  // Embed Mode postMessage handler: strictly validates origins and message schema
+  useEffect(() => {
+    if (!isEmbed) return;
+
+    const handleMessage = (event) => {
+      if (!isAllowedOrigin(event.origin)) return;
+      const msg = validateHunerMessage(event.data);
+      if (!msg) return;
+
+      if (msg.type === 'huner:progress') {
+        targetProgressRef.current = msg.p;
+        if (msg.p > 0) {
+          targetHandoffRef.current = 1;
+          handoffRef.current = 1;
+        }
+        registerInvalidate.current?.();
+        setUiProgress(old => Math.round(old * 32) === Math.round(msg.p * 32) ? old : msg.p);
+      } else if (msg.type === 'huner:handoff') {
+        targetHandoffRef.current = msg.t;
+        targetProgressRef.current = 0;
+        progressRef.current = 0;
+        registerInvalidate.current?.();
+      } else if (msg.type === 'huner:visibility') {
+        isVisibleRef.current = msg.visible;
+        if (msg.visible) {
+          registerInvalidate.current?.();
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isEmbed]);
+
+  useEffect(() => {
+    const supported = webglSupport();
+    setCanRender(supported);
+    if (!supported && isEmbed) {
+      sendBioprocessError('WebGL is unsupported on this hardware/browser');
+    }
+  }, [isEmbed]);
 
   useEffect(() => {
     if (!storyRef.current || !('IntersectionObserver' in window)) {
@@ -90,7 +155,9 @@ export default function App() {
     return () => observer.disconnect();
   }, []);
 
+  // Standalone Mode ScrollTrigger: active only when NOT in embed mode
   useEffect(() => {
+    if (isEmbed) return;
     if (!storyRef.current || !panelRef.current) return;
     const trigger = ScrollTrigger.create({
       id: ID,
@@ -117,7 +184,7 @@ export default function App() {
       trigger.kill();
       triggerRef.current = null;
     };
-  }, [small, reduced]);
+  }, [small, reduced, isEmbed]);
 
   const seek = useCallback((p) => {
     const trigger = triggerRef.current;
@@ -126,6 +193,7 @@ export default function App() {
   }, [reduced]);
 
   useEffect(() => {
+    if (isEmbed) return;
     const onKey = event => {
       if (event.altKey || event.ctrlKey || event.metaKey || !['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
       const active = document.activeElement;
@@ -139,18 +207,62 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [seek, uiProgress]);
+  }, [seek, uiProgress, isEmbed]);
 
   const onFailure = useCallback((message) => {
     setRenderFailure(message || 'WebGL failed');
     setSceneReady(false);
     registerInvalidate.current = null;
-  }, []);
-  const onReady = useCallback(() => setSceneReady(true), []);
+    if (isEmbed) {
+      sendBioprocessError(message || 'WebGL failed');
+    }
+  }, [isEmbed]);
+
+  const onReady = useCallback(() => {
+    setSceneReady(true);
+    if (isEmbed) {
+      sendBioprocessReady();
+    }
+  }, [isEmbed]);
+
   const portraitFocus = small ? [8,14,24,35,44,50,55,62,66,80][stageIndex] + "% center" : "50% center";
   const title = coda ? 'Making with life, for life.' : copy.headlines[stageIndex];
   const description = coda ? 'One connected world. Two scientific pathways.' : (stageIndex === 0 ? 'A microscopic beginning.' : copy.subtitles[stageIndex]);
 
+  // EMBED MODE RENDERING: Clean full-viewport 3D canvas driven entirely by parent postMessage
+  if (isEmbed) {
+    return (
+      <main id="living-factory-main" style={{ width: '100vw', height: '100vh', overflow: 'hidden', margin: 0, padding: 0 }}>
+        <section className="story" style={{ width: '100vw', height: '100vh', margin: 0, padding: 0 }}>
+          <div className="pinned" style={{ width: '100vw', height: '100vh', position: 'fixed', inset: 0, margin: 0, padding: 0 }}>
+            {using3D && (
+              <div className="scene-shell" style={{ width: '100%', height: '100%', opacity: 1 }} aria-hidden="true">
+                <SceneBoundary onFailure={onFailure}>
+                  <FactoryScene
+                    progressRef={progressRef}
+                    targetProgressRef={targetProgressRef}
+                    handoffRef={handoffRef}
+                    targetHandoffRef={targetHandoffRef}
+                    isVisibleRef={isVisibleRef}
+                    registerInvalidate={registerInvalidate}
+                    detail={!small && detail}
+                    onReady={onReady}
+                    onFailure={onFailure}
+                    isEmbed={true}
+                  />
+                </SceneBoundary>
+              </div>
+            )}
+            {using3D && !sceneReady && (
+              <div className="load-status" role="status" style={{ zIndex: 100 }}>LOADING 3D WORLD…</div>
+            )}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // STANDALONE MODE RENDERING: Full interactive website with ScrollTrigger and chapter narration
   return <>
     <main id="living-factory-main">
       <section ref={storyRef} className="story" aria-label="Bioprocess 3D Interactive Model">
@@ -161,12 +273,16 @@ export default function App() {
                 <FactoryScene
                   progressRef={progressRef}
                   targetProgressRef={targetProgressRef}
+                  handoffRef={handoffRef}
+                  targetHandoffRef={targetHandoffRef}
+                  isVisibleRef={isVisibleRef}
                   registerInvalidate={registerInvalidate}
                   detail={!small && detail}
                   onReady={onReady}
                   onFailure={onFailure}
                   trackBarRef={trackBarRef}
                   percentTextRef={percentTextRef}
+                  isEmbed={false}
                 />
               </SceneBoundary>
             </div>

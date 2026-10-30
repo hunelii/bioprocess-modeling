@@ -23,7 +23,7 @@ const LOOK_AT = new THREE.Vector3();
 const CAMERA_CONFIG = { position: [1.18, -1.55, 1.72], fov: 32, near: 0.015, far: 160, up: [0, 0, 1] };
 const GL_CONFIG = { alpha: false, antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: false, stencil: false };
 
-function World({ progressRef, registerInvalidate, detail, onReady }) {
+function World({ progressRef, handoffRef, registerInvalidate, detail, onReady }) {
   const { scene } = useLoader(GLTFLoader, WORLD_FILE);
   const rootScene = useThree(state => state.scene);
   const camera = useThree(state => state.camera);
@@ -150,19 +150,42 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
 
   useFrame(() => {
     const p = clamp01(progressRef.current);
-    const point = cameraAt(scene01CameraProgress(p));
-    camera.position.set(...point.position);
-    LOOK_AT.set(...point.target);
+    const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
+
+    let targetPos, targetLookAt, targetFov;
+    if (handoff < 0.999) {
+      // Handoff close-up on the hero spore (matching Huner closed-cell scale & 35 deg FOV):
+      const closePos = [1.193, -0.56, 1.49];
+      const station01Pos = [1.18, -1.55, 1.72];
+      const tSmooth = smooth(0, 1, handoff);
+
+      targetPos = [
+        closePos[0] + (station01Pos[0] - closePos[0]) * tSmooth,
+        closePos[1] + (station01Pos[1] - closePos[1]) * tSmooth,
+        closePos[2] + (station01Pos[2] - closePos[2]) * tSmooth
+      ];
+      targetLookAt = [1.2, -0.03, 1.37];
+      targetFov = 35.0 - (35.0 - 32.0) * tSmooth;
+    } else {
+      const point = cameraAt(scene01CameraProgress(p));
+      targetPos = point.position;
+      targetLookAt = point.target;
+      targetFov = point.fov;
+    }
+
+    camera.position.set(...targetPos);
+    LOOK_AT.set(...targetLookAt);
     camera.lookAt(LOOK_AT);
-    if (Math.abs(camera.fov - point.fov) > 0.005) {
-      camera.fov = point.fov;
+    if (Math.abs(camera.fov - targetFov) > 0.005) {
+      camera.fov = targetFov;
       camera.updateProjectionMatrix();
     }
-    if (Math.abs(p - lastProgress.current) < 0.000015 && lastDetail.current === detail) return;
+    if (Math.abs(p - lastProgress.current) < 0.000015 && lastDetail.current === detail && handoff >= 0.999) return;
     lastProgress.current = p;
     lastDetail.current = detail;
 
     const cutaway = p < 0.06;
+    const worldVisFactor = smooth(0.05, 0.75, handoff);
     for (const { object, start } of actors) {
       const isContainer = object.name === 'A_cylindrical_observation_shell';
       const lowPolySpore = object.name.startsWith('A_spore_');
@@ -172,7 +195,8 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
       const growth = isHypha ? smooth(start, start + .0052, p) : 1;
       object.visible = (isHypha ? growth > .002 : p + .00005 >= start)
         && !(cutaway && isContainer) && !lowPolySpore && !badLegacyIsolation && !legacyMacro
-        && (detail || !object.name.includes('GILL'));
+        && (detail || !object.name.includes('GILL'))
+        && worldVisFactor > 0.01;
     }
     updateExpansionBiomass(actors,p);
     updateIncubationBiomass(actors,p);
@@ -312,30 +336,86 @@ function CinematicLightRig({ progressRef }) {
   );
 }
 
-function SmoothScrollController({ targetProgressRef, progressRef, trackBarRef, percentTextRef }) {
+function SmoothScrollController({
+  targetProgressRef,
+  progressRef,
+  handoffRef,
+  targetHandoffRef,
+  isVisibleRef,
+  trackBarRef,
+  percentTextRef
+}) {
   const { invalidate } = useThree();
 
   useFrame((state, delta) => {
-    const target = targetProgressRef ? clamp01(targetProgressRef.current) : clamp01(progressRef.current);
-    const current = progressRef.current;
-    const diff = target - current;
+    // If hidden from view by Huner parent, skip render loop to save GPU
+    if (isVisibleRef && isVisibleRef.current === false) return;
 
-    if (Math.abs(diff) > 0.000015) {
-      // High-performance exponential easing (lambda = 15):
-      // Smooths discrete mouse wheel notch jumps into continuous 60/120 FPS cinematic motion!
-      const factor = 1 - Math.exp(-15 * Math.min(delta, 0.05));
-      const nextP = current + diff * factor;
+    let changed = false;
+
+    // 1. Smooth Progress Interpolation (p: 0 -> 1)
+    const targetP = targetProgressRef ? clamp01(targetProgressRef.current) : clamp01(progressRef.current);
+    const currentP = progressRef.current;
+    const diffP = targetP - currentP;
+
+    if (Math.abs(diffP) > 0.000015) {
+      const factorP = 1 - Math.exp(-15 * Math.min(delta, 0.05));
+      const nextP = currentP + diffP * factorP;
       progressRef.current = nextP;
 
       if (trackBarRef?.current) trackBarRef.current.style.transform = `scaleX(${nextP})`;
       if (percentTextRef?.current) percentTextRef.current.textContent = `${Math.round(nextP * 100)}%`;
+      changed = true;
+    } else if (diffP !== 0) {
+      progressRef.current = targetP;
+      if (trackBarRef?.current) trackBarRef.current.style.transform = `scaleX(${targetP})`;
+      if (percentTextRef?.current) percentTextRef.current.textContent = `${Math.round(targetP * 100)}%`;
+      changed = true;
+    }
 
+    // 2. Smooth Handoff Interpolation (t: 0 -> 1)
+    if (handoffRef) {
+      const targetT = targetHandoffRef ? clamp01(targetHandoffRef.current) : 1;
+      const currentT = handoffRef.current ?? 1;
+      const diffT = targetT - currentT;
+
+      if (Math.abs(diffT) > 0.0001) {
+        const factorT = 1 - Math.exp(-15 * Math.min(delta, 0.05));
+        handoffRef.current = currentT + diffT * factorT;
+        changed = true;
+      } else if (currentT !== targetT) {
+        handoffRef.current = targetT;
+        changed = true;
+      }
+    }
+
+    if (changed) {
       invalidate();
-    } else if (diff !== 0) {
-      progressRef.current = target;
-      if (trackBarRef?.current) trackBarRef.current.style.transform = `scaleX(${target})`;
-      if (percentTextRef?.current) percentTextRef.current.textContent = `${Math.round(target * 100)}%`;
-      invalidate();
+    }
+  });
+
+  return null;
+}
+
+function HandoffEnvironmentController({ handoffRef }) {
+  const { scene, gl } = useThree();
+  const bgCol = useMemo(() => new THREE.Color('#07120d'), []);
+  const hunerBg = useMemo(() => new THREE.Color('#22311d'), []);
+  const bioprocessBg = useMemo(() => new THREE.Color('#07120d'), []);
+
+  useFrame(() => {
+    const t = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
+    if (t < 0.999) {
+      bgCol.lerpColors(hunerBg, bioprocessBg, t);
+      if (scene.background) scene.background.copy(bgCol);
+      if (scene.fog) scene.fog.color.copy(bgCol);
+      gl.setClearColor(bgCol);
+    } else {
+      if (scene.background && !scene.background.equals(bioprocessBg)) {
+        scene.background.copy(bioprocessBg);
+        if (scene.fog) scene.fog.color.copy(bioprocessBg);
+        gl.setClearColor(bioprocessBg);
+      }
     }
   });
 
@@ -345,22 +425,26 @@ function SmoothScrollController({ targetProgressRef, progressRef, trackBarRef, p
 const FactoryScene = React.memo(function FactoryScene({
   progressRef,
   targetProgressRef,
+  handoffRef,
+  targetHandoffRef,
+  isVisibleRef,
   registerInvalidate,
   detail,
   onReady,
   onFailure,
   trackBarRef,
-  percentTextRef
+  percentTextRef,
+  isEmbed = false
 }) {
   const onCreated = useMemo(() => ({ gl }) => {
-    gl.setClearColor('#07120d');
+    gl.setClearColor(isEmbed && (handoffRef?.current ?? 1) < 0.999 ? '#22311d' : '#07120d');
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = 0.96;
     const canvas = gl.domElement;
     const onLost = (event) => { event.preventDefault(); onFailure('WebGL context lost'); };
     canvas.addEventListener('webglcontextlost', onLost, { once: true });
     if (gl.getContext().isContextLost()) onFailure('WebGL context unavailable');
-  }, [onFailure]);
+  }, [onFailure, isEmbed, handoffRef]);
 
   return (
     <Canvas
@@ -374,18 +458,28 @@ const FactoryScene = React.memo(function FactoryScene({
     >
       <color attach="background" args={['#07120d']} />
       <fog attach="fog" args={['#07120d', 18, 86]} />
+      <HandoffEnvironmentController handoffRef={handoffRef} />
       <SmoothScrollController
         targetProgressRef={targetProgressRef}
         progressRef={progressRef}
+        handoffRef={handoffRef}
+        targetHandoffRef={targetHandoffRef}
+        isVisibleRef={isVisibleRef}
         trackBarRef={trackBarRef}
         percentTextRef={percentTextRef}
       />
       <CinematicLightRig progressRef={progressRef} />
       <LookdevLocalLights />
-      <SporeReveal progressRef={progressRef}/>
+      <SporeReveal progressRef={progressRef} handoffRef={handoffRef} />
       <Suspense fallback={null}><PanoramaEnvironment /></Suspense>
       <Suspense fallback={null}>
-        <World progressRef={progressRef} registerInvalidate={registerInvalidate} detail={detail} onReady={onReady} />
+        <World
+          progressRef={progressRef}
+          handoffRef={handoffRef}
+          registerInvalidate={registerInvalidate}
+          detail={detail}
+          onReady={onReady}
+        />
       </Suspense>
     </Canvas>
   );

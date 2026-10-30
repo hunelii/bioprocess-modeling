@@ -9,7 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "check:world": "node scripts/verify-world.mjs",
     "check:assets": "node scripts/verify-assets.mjs",
-    "check": "npm run check:world && npm run check:assets && npm run check:bridge && npm run check:petri && npm run check:isolation && npm run check:expansion && npm run check:incubation && npm run check:network && npm run check:fruiting && npm run check:lookdev",
+    "check": "npm run check:world && npm run check:assets && npm run check:bridge && npm run check:petri && npm run check:isolation && npm run check:expansion && npm run check:incubation && npm run check:network && npm run check:fruiting && npm run check:lookdev && npm run check:embed",
     "check:bridge": "node scripts/verify-bridge.mjs",
     "check:petri": "node scripts/verify-petri.mjs",
     "check:isolation": "node scripts/verify-isolation.mjs",
@@ -17,7 +17,8 @@
     "check:incubation": "node scripts/verify-incubation.mjs",
     "check:network": "node scripts/verify-network.mjs",
     "check:fruiting": "node scripts/verify-fruiting.mjs",
-    "check:lookdev": "node scripts/verify-lookdev.mjs"
+    "check:lookdev": "node scripts/verify-lookdev.mjs",
+    "check:embed": "node scripts/verify-embed.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.0.0",

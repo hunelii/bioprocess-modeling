@@ -75,6 +75,7 @@ const sporeVertexShader = `
 const sporeFragmentShader = `
   uniform float uReveal;
   uniform float uOpacity;
+  uniform float uGlow;
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying vec3 vLocalPos;
@@ -146,11 +147,15 @@ const sporeFragmentShader = `
     col += warmGold * rimTight * 0.62;
     col += warmGold * warmBounce * 0.22;
 
+    // Handoff internal luminescence pulse (t: 0 -> 1)
+    vec3 internalGlowColor = vec3(0.85, 1.0, 0.72);
+    col += internalGlowColor * uGlow * (0.65 + 0.35 * diff);
+
     vec3 H = normalize(L1 + V);
     float spec = pow(max(dot(N, H), 0.0), 32.0);
     col += vec3(0.95, 1.0, 0.92) * spec * 0.48;
 
-    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec) * uReveal, 0.0, 0.98) * uOpacity;
+    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec + uGlow * 0.35) * uReveal, 0.0, 0.98) * uOpacity;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -221,7 +226,7 @@ const bokehFragmentShader = `
   }
 `;
 
-function ZoneAMicroscopyHardware({ progressRef }) {
+function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
   const hwRef = useRef();
   const steelMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#8f9c95', metalness: 0.74, roughness: 0.32, envMapIntensity: 0.75
@@ -299,8 +304,17 @@ function ZoneAMicroscopyHardware({ progressRef }) {
 
   useFrame(() => {
     const p = progressRef.current;
+    const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
     if (hwRef.current) {
-      hwRef.current.visible = p < 0.26 || p > 0.90;
+      const activeStage = p < 0.26 || p > 0.90;
+      const visible = activeStage && handoff > 0.05;
+      hwRef.current.visible = visible;
+      if (visible && handoff < 0.999) {
+        const hScale = smooth(0.15, 0.95, handoff);
+        hwRef.current.scale.set(hScale, hScale, hScale);
+      } else if (visible) {
+        hwRef.current.scale.set(1, 1, 1);
+      }
     }
   });
 
@@ -314,7 +328,7 @@ function ZoneAMicroscopyHardware({ progressRef }) {
   );
 }
 
-export default function SporeReveal({ progressRef }) {
+export default function SporeReveal({ progressRef, handoffRef }) {
   const group = useRef();
   const specimenGroup = useRef();
   const frontShellRef = useRef();
@@ -347,7 +361,8 @@ export default function SporeReveal({ progressRef }) {
   const sporeShader = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uReveal: { value: 0 },
-      uOpacity: { value: 1.0 }
+      uOpacity: { value: 1.0 },
+      uGlow: { value: 0 }
     },
     vertexShader: sporeVertexShader,
     fragmentShader: sporeFragmentShader,
@@ -360,7 +375,8 @@ export default function SporeReveal({ progressRef }) {
   const frontSporeShader = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uReveal: { value: 0 },
-      uOpacity: { value: 1.0 }
+      uOpacity: { value: 1.0 },
+      uGlow: { value: 0 }
     },
     vertexShader: sporeVertexShader,
     fragmentShader: sporeFragmentShader,
@@ -408,13 +424,22 @@ export default function SporeReveal({ progressRef }) {
       ? 0.80
       : smooth(0.0, 0.24, t) * (1.0 - smooth(0.84, 1.0, t));
 
+    const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
+    const handoffBeam = smooth(0.15, 0.85, handoff);
+    const handoffBokeh = smooth(0.2, 0.9, handoff);
+    const uGlowVal = (1.0 - handoff) * 2.8;
+
     sporeShader.uniforms.uReveal.value = Math.max(0.22, reveal);
+    sporeShader.uniforms.uGlow.value = uGlowVal;
     frontSporeShader.uniforms.uReveal.value = Math.max(0.22, reveal);
-    beamShader.uniforms.uReveal.value = (0.38 + 0.62 * reveal) * 0.95;
-    bokehShader.uniforms.uOpacity.value = 0.68 * Math.max(0.25, faint);
+    frontSporeShader.uniforms.uGlow.value = uGlowVal;
+
+    beamShader.uniforms.uReveal.value = (0.38 + 0.62 * reveal) * 0.95 * handoffBeam;
+    bokehShader.uniforms.uOpacity.value = 0.68 * Math.max(0.25, faint) * handoffBokeh;
 
     // Anatomical Cutaway Opening Transition (progress: 0.32 -> 0.67 in Station 01 beat)
-    const opening = inCoda ? 0.0 : smooth(0.32, 0.67, t);
+    // During handoff (handoff < 0.999), cell is 100% closed
+    const opening = inCoda ? 0.0 : (handoff < 0.999 ? 0.0 : smooth(0.32, 0.67, t));
     frontSporeShader.uniforms.uOpacity.value = Math.max(0.0, 1.0 - opening * 1.35);
 
     if (frontShellRef.current) {
@@ -444,7 +469,7 @@ export default function SporeReveal({ progressRef }) {
       }
     }
     if (halo.current) {
-      halo.current.material.opacity = 0.24 * reveal;
+      halo.current.material.opacity = 0.24 * reveal * handoff;
       if (specimenGroup.current) {
         halo.current.rotation.copy(specimenGroup.current.rotation);
         halo.current.position.copy(specimenGroup.current.position);
@@ -454,7 +479,7 @@ export default function SporeReveal({ progressRef }) {
 
   return (
     <>
-      <ZoneAMicroscopyHardware progressRef={progressRef} />
+      <ZoneAMicroscopyHardware progressRef={progressRef} handoffRef={handoffRef} />
       <group ref={group} visible={false}>
         {/* Volumetric Observation Column & Diagonal God-Ray Shaft */}
         <mesh position={[1.2, -0.03, 1.85]} rotation={[Math.PI / 2, 0, 0]} material={beamShader}>
