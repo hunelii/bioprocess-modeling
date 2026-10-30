@@ -1,34 +1,17 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { clamp01 } from '../data/camera.js';
 import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
+import FungalCellAnatomy, {
+  createDeformedSporeHemisphere,
+  deformSporeVertex
+} from './FungalCellAnatomy.jsx';
 
 // Scene 01: Dramatic "Birth of the First Cell" volumetric lighting, god-ray shafts, subsurface spore glow & bokeh.
 const SPORE_ANCHOR = [1.2, -0.03, 1.37];
 const smooth = (a, b, t) => { const x = clamp01((t - a) / (b - a)); return x * x * (3 - 2 * x); };
 const beat = (p) => clamp01(p / 0.11);
-
-function createHighDetailSporeGeometry(segW = 64, segH = 48) {
-  const geo = new THREE.SphereGeometry(1, segW, segH);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    const taper = 1.0 + 0.12 * z - 0.06 * z * z;
-    const dorsalCurve = 0.045 * (1.0 - z * z);
-    const apiculusMask = Math.exp(-18.0 * ((x + 0.35) * (x + 0.35) + y * y + (z + 0.88) * (z + 0.88)));
-    const macroCell = 0.022 * Math.sin(14.0 * x + 4.0 * z) * Math.cos(13.0 * y - 3.0 * x)
-                    + 0.014 * Math.cos(23.0 * z + 17.0 * x) * Math.sin(19.0 * y + 7.0 * z);
-    const microRelief = 0.0065 * Math.sin(43.0 * x + 29.0 * y) * Math.cos(37.0 * z - 19.0 * x);
-    const disp = macroCell + microRelief + 0.055 * apiculusMask;
-    const nx = (x * taper + dorsalCurve) * (1.0 + disp);
-    const ny = y * (0.94 + 0.06 * z) * (1.0 + disp);
-    const nz = z * (1.0 + 0.85 * disp) - 0.035 * apiculusMask;
-    pos.setXYZ(i, nx, ny, nz);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
 
 function createMergedInternalCytoplasmWeb() {
   const curves = [];
@@ -91,6 +74,7 @@ const sporeVertexShader = `
 // Luminous subsurface scattering + cellular wall reticulation + golden/emerald rim light for Scene 01
 const sporeFragmentShader = `
   uniform float uReveal;
+  uniform float uOpacity;
   varying vec3 vNormal;
   varying vec3 vViewPosition;
   varying vec3 vLocalPos;
@@ -166,7 +150,7 @@ const sporeFragmentShader = `
     float spec = pow(max(dot(N, H), 0.0), 32.0);
     col += vec3(0.95, 1.0, 0.92) * spec * 0.48;
 
-    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec) * uReveal, 0.0, 0.98);
+    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec) * uReveal, 0.0, 0.98) * uOpacity;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -333,14 +317,18 @@ function ZoneAMicroscopyHardware({ progressRef }) {
 export default function SporeReveal({ progressRef }) {
   const group = useRef();
   const specimenGroup = useRef();
+  const frontShellRef = useRef();
   const germTubeRef = useRef();
   const halo = useRef();
   const particles = useRef();
   const lastP = useRef(-1);
 
-  const geometry = useMemo(() => createHighDetailSporeGeometry(36, 28), []);
-  const lightSporeGeo = useMemo(() => createHighDetailSporeGeometry(20, 14), []);
-  // Emerging Germ Tube (Çimlenme Tüpü) sprouting from the spore apiculus [-0.32, 0, -0.82] toward the end of Scene 01
+  // Basidiospore outer shell split into matching back cup & hinged cutaway front cap
+  const backShellGeo = useMemo(() => createDeformedSporeHemisphere(false, 48, 28), []);
+  const frontShellGeo = useMemo(() => createDeformedSporeHemisphere(true, 48, 28), []);
+  const lightSporeGeo = useMemo(() => createDeformedSporeHemisphere(false, 20, 14), []);
+
+  // Emerging Germ Tube (Çimlenme Tüpü) sprouting from the spore apiculus hilum [-0.28, 0, -0.76] toward Scene 02
   const germTubeGeo = useMemo(() => {
     const curve = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.28, 0.0, -0.76),
@@ -352,19 +340,28 @@ export default function SporeReveal({ progressRef }) {
     const tipSphere = transformGeo(new THREE.SphereGeometry(0.135, 10, 8), [-1.18, 0.08, -1.42]);
     return mergeGeometriesFast([tube, tipSphere]);
   }, []);
-  const mergedOrganellesGeo = useMemo(() => {
-    const innerShell = transformGeo(lightSporeGeo, [0, 0, 0], [0, 0, 0], [0.88, 0.88, 0.88]);
-    const nuc = transformGeo(new THREE.IcosahedronGeometry(1, 2), [0.12, 0.05, 0.15], [0, 0, 0], [0.26, 0.28, 0.24]);
-    const vac1 = transformGeo(new THREE.IcosahedronGeometry(1, 1), [-0.22, -0.08, -0.18], [0, 0, 0], [0.18, 0.20, 0.17]);
-    const vac2 = transformGeo(new THREE.IcosahedronGeometry(1, 1), [0.05, -0.16, -0.28], [0, 0, 0], [0.12, 0.13, 0.12]);
-    return mergeGeometriesFast([innerShell, nuc, vac1, vac2]);
-  }, [lightSporeGeo]);
 
-  const cytoplasmWebGeo = useMemo(createMergedInternalCytoplasmWeb, []);
   const bokeh = useMemo(createBokehParticles, []);
 
+  // Permanent Back Cup Chitin Shader
   const sporeShader = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: { uReveal: { value: 0 } },
+    uniforms: {
+      uReveal: { value: 0 },
+      uOpacity: { value: 1.0 }
+    },
+    vertexShader: sporeVertexShader,
+    fragmentShader: sporeFragmentShader,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  }), []);
+
+  // Cutaway Front Cap Chitin Shader (opens / dissolves to reveal inner organelles)
+  const frontSporeShader = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uReveal: { value: 0 },
+      uOpacity: { value: 1.0 }
+    },
     vertexShader: sporeVertexShader,
     fragmentShader: sporeFragmentShader,
     transparent: true,
@@ -391,24 +388,6 @@ export default function SporeReveal({ progressRef }) {
     blending: THREE.AdditiveBlending
   }), []);
 
-  const organelleMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#d8f7dc',
-    emissive: '#58c982',
-    emissiveIntensity: 0.42,
-    roughness: 0.25,
-    transparent: true,
-    opacity: 0,
-    depthWrite: false
-  }), []);
-
-  const cytoplasmMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#b8f2c5',
-    transparent: true,
-    opacity: 0,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  }), []);
-
   useFrame(() => {
     if (!group.current) return;
     const p = clamp01(progressRef.current);
@@ -430,11 +409,19 @@ export default function SporeReveal({ progressRef }) {
       : smooth(0.0, 0.24, t) * (1.0 - smooth(0.84, 1.0, t));
 
     sporeShader.uniforms.uReveal.value = Math.max(0.22, reveal);
+    frontSporeShader.uniforms.uReveal.value = Math.max(0.22, reveal);
     beamShader.uniforms.uReveal.value = (0.38 + 0.62 * reveal) * 0.95;
     bokehShader.uniforms.uOpacity.value = 0.68 * Math.max(0.25, faint);
 
-    organelleMat.opacity = 0.55 * reveal;
-    cytoplasmMat.opacity = 0.35 * reveal;
+    // Anatomical Cutaway Opening Transition (progress: 0.32 -> 0.67 in Station 01 beat)
+    const opening = inCoda ? 0.0 : smooth(0.32, 0.67, t);
+    frontSporeShader.uniforms.uOpacity.value = Math.max(0.0, 1.0 - opening * 1.35);
+
+    if (frontShellRef.current) {
+      frontShellRef.current.position.set(0, -opening * 0.38, -opening * 0.14);
+      frontShellRef.current.rotation.set(-opening * 0.78, 0, 0);
+      frontShellRef.current.visible = opening < 0.985;
+    }
 
     if (specimenGroup.current) {
       specimenGroup.current.rotation.set(
@@ -478,9 +465,16 @@ export default function SporeReveal({ progressRef }) {
         </mesh>
 
         <group ref={specimenGroup} position={SPORE_ANCHOR} scale={[0.128, 0.082, 0.168]}>
-          <mesh geometry={geometry} material={sporeShader} />
-          <mesh geometry={mergedOrganellesGeo} material={organelleMat} />
-          <mesh geometry={cytoplasmWebGeo} material={cytoplasmMat} />
+          {/* 1. Permanent Back Cup Chitin Shell */}
+          <mesh geometry={backShellGeo} material={sporeShader} />
+
+          {/* 2. Opening Cutaway Front Cap (smoothly aralanır between t: 0.32 -> 0.67) */}
+          <mesh ref={frontShellRef} geometry={frontShellGeo} material={frontSporeShader} />
+
+          {/* 3. Authentic Huner Biofoundry FungalCell Organelle World */}
+          <FungalCellAnatomy progressRef={progressRef} />
+
+          {/* 4. Hyphal Germ Tube sprouting from Apiculus Hilum */}
           <mesh ref={germTubeRef} geometry={germTubeGeo} material={sporeShader} visible={false} />
         </group>
 
