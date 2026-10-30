@@ -415,7 +415,7 @@ export function DetailedOysterMushrooms({ progressRef }) {
     const active = p >= .695;
     if (rootGroupRef.current) rootGroupRef.current.visible = active;
     if (!active) return;
-    if (Math.abs(p - lastP.current) < 0.0004 || (p > 0.785 && lastP.current > 0.785)) return;
+    if (Math.abs(p - lastP.current) < 0.00002 || (p > 0.785 && lastP.current > 0.785)) return;
     lastP.current = p;
 
     items.forEach((item, i) => {

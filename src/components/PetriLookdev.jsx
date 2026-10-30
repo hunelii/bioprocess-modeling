@@ -325,7 +325,7 @@ export function PetriLight({ progressRef }) {
     const vis = growth > 0.008 && (p <= 0.32 || p > 0.90);
     if (colonyGroupRef.current) colonyGroupRef.current.visible = vis;
     if (!vis) return;
-    if (Math.abs(p - lastP.current) < 0.0002) return;
+    if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
 
     colonyMat.uniforms.uGrowth.value = growth;

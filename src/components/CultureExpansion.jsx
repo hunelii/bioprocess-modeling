@@ -218,7 +218,7 @@ function CultureThreads({ vessel, progressRef }) {
     const active = a > 0.01 && (p >= 0.28 || p > 0.90);
     if (group.current) group.current.visible = active;
     if (!active) return;
-    if (Math.abs(p - lastP.current) < 0.0002) return;
+    if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
 
     if (stirBarRef.current) {

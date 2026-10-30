@@ -417,7 +417,7 @@ export default function SporeReveal({ progressRef }) {
     const vis = inOpening || inCoda;
     group.current.visible = vis;
     if (!vis) return;
-    if (Math.abs(p - lastP.current) < 0.0002) return;
+    if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
 
     const t = beat(p);

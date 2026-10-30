@@ -581,7 +581,7 @@ function ZoneGFermentationHero({ progressRef }) {
     const active = p >= 0.66;
     if (groupRef.current) groupRef.current.visible = active;
     if (!active) return;
-    if (Math.abs(p - lastP.current) < 0.0002) return;
+    if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
 
     brothMat.uniforms.uTime.value = p * 28.0;

@@ -193,7 +193,7 @@ export function IsolationSelection({ progressRef }) {
       if (loopToolRef.current) loopToolRef.current.visible = false;
       return;
     }
-    if (Math.abs(p - lastP.current) < 0.0002) return;
+    if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
 
     const sourceReveal = p > 0.92 ? 1.0 : eased(.243, .268, p);

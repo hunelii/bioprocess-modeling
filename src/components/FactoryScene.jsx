@@ -158,7 +158,7 @@ function World({ progressRef, registerInvalidate, detail, onReady }) {
       camera.fov = point.fov;
       camera.updateProjectionMatrix();
     }
-    if (Math.abs(p - lastProgress.current) < 0.00005 && lastDetail.current === detail) return;
+    if (Math.abs(p - lastProgress.current) < 0.000015 && lastDetail.current === detail) return;
     lastProgress.current = p;
     lastDetail.current = detail;
 
@@ -312,7 +312,46 @@ function CinematicLightRig({ progressRef }) {
   );
 }
 
-const FactoryScene = React.memo(function FactoryScene({ progressRef, registerInvalidate, detail, onReady, onFailure }) {
+function SmoothScrollController({ targetProgressRef, progressRef, trackBarRef, percentTextRef }) {
+  const { invalidate } = useThree();
+
+  useFrame((state, delta) => {
+    const target = targetProgressRef ? clamp01(targetProgressRef.current) : clamp01(progressRef.current);
+    const current = progressRef.current;
+    const diff = target - current;
+
+    if (Math.abs(diff) > 0.000015) {
+      // High-performance exponential easing (lambda = 15):
+      // Smooths discrete mouse wheel notch jumps into continuous 60/120 FPS cinematic motion!
+      const factor = 1 - Math.exp(-15 * Math.min(delta, 0.05));
+      const nextP = current + diff * factor;
+      progressRef.current = nextP;
+
+      if (trackBarRef?.current) trackBarRef.current.style.transform = `scaleX(${nextP})`;
+      if (percentTextRef?.current) percentTextRef.current.textContent = `${Math.round(nextP * 100)}%`;
+
+      invalidate();
+    } else if (diff !== 0) {
+      progressRef.current = target;
+      if (trackBarRef?.current) trackBarRef.current.style.transform = `scaleX(${target})`;
+      if (percentTextRef?.current) percentTextRef.current.textContent = `${Math.round(target * 100)}%`;
+      invalidate();
+    }
+  });
+
+  return null;
+}
+
+const FactoryScene = React.memo(function FactoryScene({
+  progressRef,
+  targetProgressRef,
+  registerInvalidate,
+  detail,
+  onReady,
+  onFailure,
+  trackBarRef,
+  percentTextRef
+}) {
   const onCreated = useMemo(() => ({ gl }) => {
     gl.setClearColor('#07120d');
     gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -335,6 +374,12 @@ const FactoryScene = React.memo(function FactoryScene({ progressRef, registerInv
     >
       <color attach="background" args={['#07120d']} />
       <fog attach="fog" args={['#07120d', 18, 86]} />
+      <SmoothScrollController
+        targetProgressRef={targetProgressRef}
+        progressRef={progressRef}
+        trackBarRef={trackBarRef}
+        percentTextRef={percentTextRef}
+      />
       <CinematicLightRig progressRef={progressRef} />
       <LookdevLocalLights />
       <SporeReveal progressRef={progressRef}/>

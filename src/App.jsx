@@ -51,6 +51,7 @@ export default function App() {
   const panelRef = useRef(null);
   const triggerRef = useRef(null);
   const progressRef = useRef(0);
+  const targetProgressRef = useRef(0);
   const registerInvalidate = useRef(null);
   const trackBarRef = useRef(null);
   const percentTextRef = useRef(null);
@@ -102,11 +103,8 @@ export default function App() {
       anticipatePin: 1,
       onUpdate: self => {
         const p = clamp01(self.progress);
-        progressRef.current = p;
+        targetProgressRef.current = p;
         registerInvalidate.current?.();
-        // Update 60fps progress bar & percentage directly via DOM refs to avoid React re-render overhead
-        if (trackBarRef.current) trackBarRef.current.style.transform = `scaleX(${p})`;
-        if (percentTextRef.current) percentTextRef.current.textContent = `${Math.round(p * 100)}%`;
         // Throttle React state updates to ~32 steps across the entire scroll
         setUiProgress(old => Math.round(old * 32) === Math.round(p * 32) ? old : p);
       }
@@ -162,10 +160,13 @@ export default function App() {
               <SceneBoundary onFailure={onFailure}>
                 <FactoryScene
                   progressRef={progressRef}
+                  targetProgressRef={targetProgressRef}
                   registerInvalidate={registerInvalidate}
                   detail={!small && detail}
                   onReady={onReady}
                   onFailure={onFailure}
+                  trackBarRef={trackBarRef}
+                  percentTextRef={percentTextRef}
                 />
               </SceneBoundary>
             </div>
