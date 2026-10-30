@@ -154,24 +154,85 @@ export default function App() {
   const description = coda ? 'One connected world. Two scientific pathways.' : (stageIndex === 0 ? 'A microscopic beginning.' : copy.subtitles[stageIndex]);
 
   return <>
-    <a className="skip-link" href="#living-factory-main">Skip to the living factory</a>
-    <header className="site-header"><a href="https://huner-biofoundry.vercel.app" className="brand">HUNER BIOFOUNDRY</a><span>THE LIVING FACTORY · INTERACTIVE EXPERIENCE</span></header>
-    <section className="intro" aria-label="Introduction"><span className="eyebrow">HUNER BIOFOUNDRY / SCIENTIFIC VISUAL STUDY</span><h1>A factory<br/>alive with<br/>possibility.</h1><p>Follow one fungal organism through cultivation, selection, growth, fruiting and engineered fermentation.</p><span className="scroll-cue">SCROLL TO ENTER THE FOUNDRY ↓</span></section>
-    <main id="living-factory-main"><section ref={storyRef} className="story" aria-label="Explore the living factory"><div ref={panelRef} className="pinned">
-      {using3D && <div className="scene-shell" style={{ opacity: 1 }} aria-hidden="true"><SceneBoundary onFailure={onFailure}><FactoryScene progressRef={progressRef} registerInvalidate={registerInvalidate} detail={!small && detail} onReady={onReady} onFailure={onFailure}/></SceneBoundary></div>}
-      <div className="veil" aria-hidden="true"/><IsolationOverlay progress={uiProgress}/><ExpansionOverlay progress={uiProgress}/><IncubationOverlay progress={uiProgress}/><LivingNetworkOverlay progress={uiProgress}/><FruitingOverlay progress={uiProgress}/>
-      <div className="overlay-top"><div className="identity">HUNER BIOFOUNDRY<span>MAKING WITH LIFE, FOR LIFE.</span></div><span className="status">01—10 / LIVING FACTORY</span></div>
-      <article className="story-copy" aria-live="off" style={{opacity:1-(1-Math.min(1,Math.abs(uiProgress-.11)/.012))*.94}}><div className="chapter">{coda ? 'COMPLETE WORLD' : `${String(stageIndex + 1).padStart(2, '0')} / ${STAGE_COUNT}`}</div><h2>{title}</h2><p>{description}</p></article>
-      <p className="sr-only" aria-live="polite" aria-atomic="true">{coda ? 'Complete factory overview' : `Stage ${stageIndex + 1}: ${copy.labels[stageIndex]}`}</p>
-      <div className="right-note">CURRENT STATION<strong>{stage ? copy.labels[stageIndex] : 'THE LIVING FACTORY'}</strong></div>
-      <footer className="story-footer"><div className="eyebrow-bar"><span>ONE ORGANISM / TWO SCIENTIFIC PATHWAYS</span><span ref={percentTextRef}>{Math.round(uiProgress * 100)}%</span></div>
-        <nav className="stage-nav" aria-label="Ten scientific stages">{STAGES.map((s, i) => <button type="button" key={s.id} className={!coda && stageIndex === i ? 'active' : ''} aria-label={`Go to ${copy.labels[i].toLowerCase()} stage`} aria-current={!coda && stageIndex === i ? 'step' : undefined} onClick={() => seek(s.progress)}>{copy.labels[i]}</button>)}</nav>
-        <div className="track" role="progressbar" aria-label="Factory journey progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(uiProgress * 100)}><div ref={trackBarRef} style={{transform: `scaleX(${uiProgress})`}} /></div>
-        <div className="footnote"><button type="button" onClick={() => seek(0)}>↶ RESTART</button><span>SCROLL VERTICALLY · ARROW KEYS TO CHANGE CHAPTER</span>{using3D && sceneReady && <button type="button" aria-pressed={!detail} onClick={() => setDetail(v => !v)}>{detail ? 'FULL DETAIL' : 'SIMPLIFIED DETAIL'}</button>}</div>
-      </footer>
-      {using3D && !sceneReady && <div className="load-status" role="status">LOADING 3D WORLD…</div>}
-    </div></section>
-    <section className="outro"><span className="eyebrow">THE COMPLETE LIVING FACTORY</span><h2>Making with life,<br/>for life.</h2><p>Fungal cultivation and controlled bioprocess engineering open new ways to explore what living systems can make.</p><div className="domains"><span>FOOD</span><span>FRAGRANCE</span><span>BIOLOGICAL RAW MATERIALS</span></div><a className="cta" href="https://huner-biofoundry.vercel.app">EXPLORE HUNER ↗</a><p className="disclaimer">Illustrative scientific visualization. Pleurotus ostreatus is a visual reference, not a claim about HUNER's production strains, measured process values, or equipment.</p></section>
-    </main><footer className="site-footer">HUNER BIOFOUNDRY · MAKING WITH LIFE, FOR LIFE.</footer>
+    <main id="living-factory-main">
+      <section ref={storyRef} className="story" aria-label="Bioprocess 3D Interactive Model">
+        <div ref={panelRef} className="pinned">
+          {using3D && (
+            <div className="scene-shell" style={{ opacity: 1 }} aria-hidden="true">
+              <SceneBoundary onFailure={onFailure}>
+                <FactoryScene
+                  progressRef={progressRef}
+                  registerInvalidate={registerInvalidate}
+                  detail={!small && detail}
+                  onReady={onReady}
+                  onFailure={onFailure}
+                />
+              </SceneBoundary>
+            </div>
+          )}
+          <div className="veil" aria-hidden="true"/>
+          <IsolationOverlay progress={uiProgress}/>
+          <ExpansionOverlay progress={uiProgress}/>
+          <IncubationOverlay progress={uiProgress}/>
+          <LivingNetworkOverlay progress={uiProgress}/>
+          <FruitingOverlay progress={uiProgress}/>
+          <div className="overlay-top">
+            <div className="identity">
+              <a href="https://hunelii.github.io/huner-biofoundry/" className="brand" target="_blank" rel="noreferrer" title="Return to Main Website">
+                HUNER BIOFOUNDRY ↗
+              </a>
+              <span>BIOPROCESS 3D MODELING</span>
+            </div>
+            <span className="status">01—10 / PROCESS STAGES</span>
+          </div>
+          <article className="story-copy" aria-live="off" style={{opacity:1-(1-Math.min(1,Math.abs(uiProgress-.11)/.012))*.94}}>
+            <div className="chapter">{coda ? 'COMPLETE PROCESS' : `${String(stageIndex + 1).padStart(2, '0')} / ${STAGE_COUNT}`}</div>
+            <h2>{title}</h2>
+            <p>{description}</p>
+          </article>
+          <p className="sr-only" aria-live="polite" aria-atomic="true">
+            {coda ? 'Complete process overview' : `Stage ${stageIndex + 1}: ${copy.labels[stageIndex]}`}
+          </p>
+          <div className="right-note">
+            CURRENT STATION<strong>{stage ? copy.labels[stageIndex] : 'BIOPROCESS MODEL'}</strong>
+          </div>
+          <footer className="story-footer">
+            <div className="eyebrow-bar">
+              <span>BIOPROCESS VISUALIZATION · 10 SCIENTIFIC STAGES</span>
+              <span ref={percentTextRef}>{Math.round(uiProgress * 100)}%</span>
+            </div>
+            <nav className="stage-nav" aria-label="Ten scientific stages">
+              {STAGES.map((s, i) => (
+                <button
+                  type="button"
+                  key={s.id}
+                  className={!coda && stageIndex === i ? 'active' : ''}
+                  aria-label={`Go to ${copy.labels[i].toLowerCase()} stage`}
+                  aria-current={!coda && stageIndex === i ? 'step' : undefined}
+                  onClick={() => seek(s.progress)}
+                >
+                  {copy.labels[i]}
+                </button>
+              ))}
+            </nav>
+            <div className="track" role="progressbar" aria-label="Process journey progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={Math.round(uiProgress * 100)}>
+              <div ref={trackBarRef} style={{transform: `scaleX(${uiProgress})`}} />
+            </div>
+            <div className="footnote">
+              <button type="button" onClick={() => seek(0)}>↶ RESTART</button>
+              <span>SCROLL VERTICALLY · ARROW KEYS TO CHANGE CHAPTER</span>
+              {using3D && sceneReady && (
+                <button type="button" aria-pressed={!detail} onClick={() => setDetail(v => !v)}>
+                  {detail ? 'FULL DETAIL' : 'SIMPLIFIED DETAIL'}
+                </button>
+              )}
+            </div>
+          </footer>
+          {using3D && !sceneReady && (
+            <div className="load-status" role="status">LOADING 3D WORLD…</div>
+          )}
+        </div>
+      </section>
+    </main>
   </>;
 }
