@@ -149,14 +149,16 @@ const sporeFragmentShader = `
     col += warmGold * warmBounce * 0.22;
 
     // Handoff internal luminescence pulse (t: 0 -> 1)
-    vec3 internalGlowColor = vec3(0.85, 1.0, 0.72);
-    col += internalGlowColor * uGlow * (0.65 + 0.35 * diff);
+    vec3 internalGlowColor = vec3(0.55, 0.95, 0.65);
+    float glowTerm = clamp(uGlow * 0.45, 0.0, 1.0);
+    col = mix(col, internalGlowColor * 1.15, glowTerm * 0.55);
+    col += internalGlowColor * (0.28 * uGlow * (0.45 + 0.55 * diff));
 
     vec3 H = normalize(L1 + V);
     float spec = pow(max(dot(N, H), 0.0), 32.0);
     col += vec3(0.95, 1.0, 0.92) * spec * 0.48;
 
-    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec + uGlow * 0.35) * uReveal, 0.0, 0.98) * uOpacity;
+    float alpha = clamp((0.92 + 0.08 * fresnel + spec * 0.15) * uReveal, 0.0, 1.0) * uOpacity;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -266,12 +268,7 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       transformGeo(new THREE.BoxGeometry(0.15, 0.16, 0.02), [3.30, -0.32, 1.38], [0, 0, 0.28])
     ];
 
-    // Rear structural support columns for observation stage (placed strictly behind the specimen so the camera view is 100% open)
-    const rodGeo = new THREE.CylinderGeometry(0.014, 0.014, 1.66, 8);
-    for (const ang of [0.42, Math.PI * 0.5, Math.PI - 0.42]) {
-      darkList.push(transformGeo(rodGeo, [1.25 + Math.cos(ang) * 0.65, Math.sin(ang) * 0.65, 1.38], [Math.PI / 2, 0, 0]));
-    }
-
+    // Observation Stage base hardware (unobstructed open viewing volume around the hero cell)
     const brassList = [
       transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [2.25, -0.46, 1.185], [Math.PI / 2, 0, 0]),
       transformGeo(new THREE.CylinderGeometry(0.016, 0.011, 0.06, 10), [3.30, -0.32, 1.46], [Math.PI / 2, 0, 0]),

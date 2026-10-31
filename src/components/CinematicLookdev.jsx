@@ -180,73 +180,103 @@ const stemMaterial = new THREE.MeshStandardMaterial({
 });
 
 export function upgradeFactoryMaterials(world) {
-  const sharedFloorMat = new THREE.MeshStandardMaterial({
-    color: '#111d17',
-    roughness: 0.48,
-    metalness: 0.22,
-    envMapIntensity: 0.55
-  });
-  const sharedPathMat = new THREE.MeshStandardMaterial({
-    color: '#4f8c69',
-    emissive: '#1d402c',
-    emissiveIntensity: 0.25,
-    roughness: 0.45,
-    metalness: 0.1
-  });
-  const sharedGlassMat = createFastGlassMaterial({
-    color: '#d8eae0',
-    opacity: 0.28,
-    roughness: 0.08,
-    envMapIntensity: 0.85
-  });
-  const sharedLiquidMat = new THREE.MeshStandardMaterial({
-    color: '#c98a32',
-    roughness: 0.28,
-    metalness: 0.08,
-    transparent: true,
-    opacity: 0.72
-  });
-  const sharedDisplayMat = new THREE.MeshStandardMaterial({
-    color: '#0c1f16',
-    roughness: 0.35,
-    metalness: 0.2
-  });
-  const sharedFrameMat = new THREE.MeshStandardMaterial({
-    color: '#8d9993',
-    roughness: 0.34,
-    metalness: 0.72,
-    envMapIntensity: 0.75
-  });
+  // THE LIVING BIOSPHERE / BİYO-MİMARİ TAPINAĞI (Neri Oxman & Zaha Hadid Visionary Architecture)
+  // Replaces cold industrial steel with sculptural hyphal bone, pressed mycelium composite,
+  // monolithic basalt stone, and living biological materials.
+
+  // 1. Structural Columns, Trusses & Arches: Calcified Hyphal Bone / Sculptural Pressed Mycelium
   const sharedColumnMat = new THREE.MeshStandardMaterial({
-    color: '#1c2822',
-    roughness: 0.46,
-    metalness: 0.62,
-    envMapIntensity: 0.6
+    color: '#dfd7c8', // Warm pressed mycelium composite / plaster chalk
+    roughness: 0.88,
+    metalness: 0.02,
+    envMapIntensity: 0.40
   });
-  const sharedTrayMat = new THREE.MeshStandardMaterial({
-    color: '#3d3326',
-    roughness: 0.92,
-    metalness: 0.04
+
+  // 2. Equipment Frameworks & Enclosures: Dark Matte Biopolymer / Deep Fossil Composite
+  const sharedFrameMat = new THREE.MeshStandardMaterial({
+    color: '#243329', // Organic deep biophilic composite (replaces grey industrial steel)
+    roughness: 0.74,
+    metalness: 0.06,
+    envMapIntensity: 0.45
   });
-  // Exact sampled colors & satin finishes from the original bench worktops & plinths (0 PNG texture overhead!)
-  const sharedWorktopSteelMat = new THREE.MeshStandardMaterial({
-    color: '#b5bfae',
-    roughness: 0.34,
-    metalness: 0.68,
-    envMapIntensity: 0.82
+
+  // 3. Worktops: Monolithic Matte Basalt Stone / Dark Mineral Composite (museum-grade tactile stone)
+  const sharedWorktopStoneMat = new THREE.MeshStandardMaterial({
+    color: '#1e2821', // Monolithic dark stone worktop
+    roughness: 0.65,
+    metalness: 0.06,
+    envMapIntensity: 0.60
   });
+
+  // 4. Bench Plinths & Pedestals: Sculpted Rammed Earth / Compressed Mycelium Plinth Blocks
   const sharedBenchPlinthMat = new THREE.MeshStandardMaterial({
-    color: '#d5d0b5',
-    roughness: 0.58,
-    metalness: 0.08,
-    envMapIntensity: 0.55
+    color: '#cdc3af', // Warm rammed mycelium substrate block
+    roughness: 0.84,
+    metalness: 0.02,
+    envMapIntensity: 0.45
+  });
+
+  // 5. Floor & Foundation: Rich Living Biological Humus / Earth Terrazzo Substrate
+  const sharedFloorMat = new THREE.MeshStandardMaterial({
+    color: '#131c15', // Deep living mossy humus floor
+    roughness: 0.86,
+    metalness: 0.03,
+    envMapIntensity: 0.35
+  });
+
+  // 6. Narrative Life Path: Luminescent Bioluminescent Guide Ribbon
+  const sharedPathMat = new THREE.MeshStandardMaterial({
+    color: '#52c68c',
+    emissive: '#165233',
+    emissiveIntensity: 0.42,
+    roughness: 0.42,
+    metalness: 0.08
+  });
+
+  // 7. Borosilicate Glassware & Vessels
+  const sharedGlassMat = createFastGlassMaterial({
+    color: '#d6ede0',
+    opacity: 0.30,
+    roughness: 0.06,
+    envMapIntensity: 0.88
+  });
+
+  // 8. Fermentation Vessel Shell: Translucent Borosilicate Heart Chamber
+  const sharedHeartGlassMat = createFastGlassMaterial({
+    color: '#e4eee0',
+    opacity: 0.38,
+    roughness: 0.10,
+    envMapIntensity: 0.92
+  });
+
+  // 9. Cultivation Broth & Metabolic Fluids
+  const sharedLiquidMat = new THREE.MeshStandardMaterial({
+    color: '#df9834',
+    emissive: '#663c0a',
+    emissiveIntensity: 0.35,
+    roughness: 0.22,
+    metalness: 0.06,
+    transparent: true,
+    opacity: 0.78
+  });
+
+  const sharedDisplayMat = new THREE.MeshStandardMaterial({
+    color: '#0c1a13',
+    roughness: 0.40,
+    metalness: 0.15
+  });
+
+  const sharedTrayMat = new THREE.MeshStandardMaterial({
+    color: '#2e261d',
+    roughness: 0.94,
+    metalness: 0.02
   });
 
   world.traverse(object => {
     if (!object.isMesh) return;
     const name = object.name || '';
     if (/^(B_worktop|C_counter|E_cabinet_top|H_console_top)$/.test(name)) {
-      object.material = sharedWorktopSteelMat;
+      object.material = sharedWorktopStoneMat;
     } else if (/^(B_bench_plinth|C_sterile_bench|D_growth_plinth|H_console)$/.test(name)) {
       object.material = sharedBenchPlinthMat;
     } else if (name.startsWith('F_substrate_tray_')) {
@@ -257,7 +287,9 @@ export function upgradeFactoryMaterials(world) {
       object.material = sharedColumnMat;
     } else if (name.startsWith('F_') && /(frame|support|rail|enclosure|post|roof)/i.test(name)) {
       object.material = sharedFrameMat;
-    } else if (name.startsWith('G_') && /(body|tank|manifold|shell|steel|rim|skirt|motor|leg|outlet|sensor|pillar)/i.test(name)) {
+    } else if (name.startsWith('G_') && /(body|tank|shell)/i.test(name)) {
+      object.material = sharedHeartGlassMat;
+    } else if (name.startsWith('G_') && /(manifold|steel|rim|skirt|motor|leg|outlet|sensor|pillar)/i.test(name)) {
       object.material = sharedFrameMat;
     } else if (/(floor|foundation|service_datum)/i.test(name)) {
       object.material = sharedFloorMat;
