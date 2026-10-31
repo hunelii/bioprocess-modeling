@@ -266,9 +266,9 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       transformGeo(new THREE.BoxGeometry(0.15, 0.16, 0.02), [3.30, -0.32, 1.38], [0, 0, 0.28])
     ];
 
+    // Rear structural support columns for observation stage (placed strictly behind the specimen so the camera view is 100% open)
     const rodGeo = new THREE.CylinderGeometry(0.014, 0.014, 1.66, 8);
-    for (let k = 0; k < 6; k++) {
-      const ang = (k / 6) * Math.PI * 2 + 0.35;
+    for (const ang of [0.42, Math.PI * 0.5, Math.PI - 0.42]) {
       darkList.push(transformGeo(rodGeo, [1.25 + Math.cos(ang) * 0.65, Math.sin(ang) * 0.65, 1.38], [Math.PI / 2, 0, 0]));
     }
 
