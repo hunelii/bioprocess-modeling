@@ -1,0 +1,679 @@
+import React, { useMemo, useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
+
+/**
+ * THE LIVING BIOSPHERE / BİYO-MİMARİ TAPINAĞI
+ * (Neri Oxman & Zaha Hadid Visionary Architecture for Huner Living Biofoundry)
+ * 
+ * 1. LivingBiosphereCanopyAndVaults:
+ *    - Akışkan kemiksi/hifsel sütunlar & tonozlar (organik katener yaylar & hifsel kaburgalar)
+ *    - Preslenmiş mycelium kompoziti & kireç/kil sıva kubbe panelleri
+ *    - Şeffaf vasküler (damarsal) kıvrımlı biyo-tüpler (besin sıvısı ve sporların dolaştığı yaşayan damarlar)
+ * 
+ * 2. BiologicalMicroLandscape:
+ *    - Biyolojik Mikro-Peyzaj / Terrarium Yatağı (Zone B & C çevresi, Petri kaplarının oturduğu canlı mikrokosmos)
+ * 
+ * 3. SuspendedDropletReactors:
+ *    - Askıda Damla Reaktörleri / Levite Kapsüller (Zone D & E çevresi, askıda asılı biyolojik damla reaktörleri)
+ * 
+ * 4. OrganicHeartReactor:
+ *    - Organik Kalp Reaktörü (Zone G, çift hazneli anatomik yaşayan cam kalp, aortik damarlar, spiral mycelium bağları)
+ */
+
+export function LivingBiosphereCanopyAndVaults() {
+  const myceliumVaultMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#dfd7c8', // Warm pressed mycelium composite / plaster chalk
+    roughness: 0.90,
+    metalness: 0.02
+  }), []);
+
+  const hyphalRibMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#cdc3af', // Calcified sculptural hyphal bone / organic structural ribs
+    roughness: 0.82,
+    metalness: 0.04
+  }), []);
+
+  const vascularGlassMat = useMemo(() => createFastGlassMaterial({
+    color: '#c2f0dc',
+    opacity: 0.32,
+    roughness: 0.06,
+    metalness: 0.08,
+    side: THREE.DoubleSide
+  }), []);
+
+  const nutrientFluidMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#df9634',
+    emissive: '#844c10',
+    emissiveIntensity: 0.45,
+    roughness: 0.22,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.78
+  }), []);
+
+  const sporeFluidMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#36bf84',
+    emissive: '#12683e',
+    emissiveIntensity: 0.52,
+    roughness: 0.22,
+    metalness: 0.05,
+    transparent: true,
+    opacity: 0.82
+  }), []);
+
+  const floorRockMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#1b231e',
+    roughness: 0.92,
+    metalness: 0.06
+  }), []);
+
+  const floorMossMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#26422c',
+    roughness: 0.92,
+    metalness: 0.0
+  }), []);
+
+  const batched = useMemo(() => {
+    const vaultList = [];
+    const ribList = [];
+    const glassTubeList = [];
+    const nutrientList = [];
+    const sporeList = [];
+    const rockList = [];
+    const mossList = [];
+
+    // =========================================================================
+    // 1. AKIŞKAN ORGANİK KEMİKSİ / HİFSEL SÜTUNLAR & TONOZLAR (Zaha Hadid / Oxman)
+    // =========================================================================
+    const xColumns = [0.15, 2.5, 5.8, 9.2, 13.0, 17.5, 22.0, 27.5, 32.2];
+
+    for (const xCol of xColumns) {
+      // Primary Hyphal Structural Rib Arch:
+      // Starts with a wide flared rhizomorph base at floor [xCol, 2.85, 0.0],
+      // curves gracefully upward to [xCol, 2.30, 2.0], branches at [xCol, 1.80, 3.3],
+      // and sweeps into overhead bio-vault at [xCol, 0.80, 4.4] -> [xCol, -0.20, 4.9]
+      const archPoints = [
+        new THREE.Vector3(xCol, 2.90, 0.0),
+        new THREE.Vector3(xCol, 2.70, 0.6),
+        new THREE.Vector3(xCol, 2.40, 1.6),
+        new THREE.Vector3(xCol, 2.05, 2.7),
+        new THREE.Vector3(xCol, 1.55, 3.7),
+        new THREE.Vector3(xCol, 0.85, 4.4),
+        new THREE.Vector3(xCol, 0.00, 4.8)
+      ];
+      const archCurve = new THREE.CatmullRomCurve3(archPoints);
+      ribList.push(new THREE.TubeGeometry(archCurve, 32, 0.082, 10, false));
+
+      // Flared organic root base at the floor (Banyan / fungal rhizomorph foot)
+      const baseFoot = new THREE.CylinderGeometry(0.24, 0.38, 0.35, 10);
+      ribList.push(transformGeo(baseFoot, [xCol, 2.90, 0.17], [0, 0, 0]));
+
+      // Secondary Cantilevered Rib (Branching outward toward viewer aisle at z = 2.7..4.2)
+      const branchPoints = [
+        new THREE.Vector3(xCol, 2.05, 2.7),
+        new THREE.Vector3(xCol, 1.45, 3.4),
+        new THREE.Vector3(xCol, 0.65, 4.0),
+        new THREE.Vector3(xCol, -0.45, 4.25)
+      ];
+      const branchCurve = new THREE.CatmullRomCurve3(branchPoints);
+      ribList.push(new THREE.TubeGeometry(branchCurve, 20, 0.054, 8, false));
+
+      // Transverse connecting bone brace between ribs
+      const transversePoints = [
+        new THREE.Vector3(xCol, 2.40, 1.6),
+        new THREE.Vector3(xCol + 0.35, 2.15, 2.1),
+        new THREE.Vector3(xCol, 1.85, 2.9)
+      ];
+      ribList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(transversePoints), 12, 0.038, 8, false));
+    }
+
+    // Longitudinal Inter-Rib Connecting Tendrils (Running the length of the biosphere at overhead height)
+    for (let k = 0; k < xColumns.length - 1; k++) {
+      const xA = xColumns[k];
+      const xB = xColumns[k + 1];
+      const xMid = (xA + xB) * 0.5;
+
+      // Connecting arch at upper ridge
+      const ridgePoints = [
+        new THREE.Vector3(xA, 0.85, 4.4),
+        new THREE.Vector3(xMid, 0.75, 4.52),
+        new THREE.Vector3(xB, 0.85, 4.4)
+      ];
+      ribList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ridgePoints), 16, 0.042, 8, false));
+
+      // Connecting arch at intermediate height
+      const midPoints = [
+        new THREE.Vector3(xA, 2.05, 2.7),
+        new THREE.Vector3(xMid, 2.18, 2.85),
+        new THREE.Vector3(xB, 2.05, 2.7)
+      ];
+      ribList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(midPoints), 16, 0.038, 8, false));
+    }
+
+    // =========================================================================
+    // 2. PRESLENMİŞ MYCELIUM KOMPOZİTİ KUBBE TAVANI (Vaulted Canopy Panels)
+    // =========================================================================
+    // Organic curved vault panels spanning overhead x = 0 to 33
+    for (let s = 0; s < 11; s++) {
+      const xPanel = s * 3.0 + 1.5;
+      // Arched vault panel segment
+      const vaultGeo = new THREE.CylinderGeometry(4.8, 4.8, 2.92, 24, 1, true, 0.85, 1.45);
+      vaultList.push(transformGeo(vaultGeo, [xPanel, 1.6, 1.2], [0, 0, Math.PI / 2], [1, 0.82, 1]));
+    }
+
+    // Back wall mycelium acoustic relief panels
+    const backWallPanel = new THREE.BoxGeometry(33.0, 0.12, 1.45);
+    vaultList.push(transformGeo(backWallPanel, [16.0, 2.92, 1.15]));
+
+    // =========================================================================
+    // 3. ŞEFFAF VASKÜLER (DAMARSAL) KIVRIMLI TÜPLER & DOLAŞIM SİSTEMİ
+    // =========================================================================
+    // Arterial Nutrient Bio-Tube: Runs smoothly from x = -0.5 to x = 33.5 with natural harmonic sinusoids
+    const nutrientSplinePoints = [];
+    const sporeSplinePoints = [];
+    const numPoints = 28;
+
+    for (let i = 0; i <= numPoints; i++) {
+      const u = i / numPoints;
+      const x = -0.5 + u * 34.0;
+      
+      // Arterial nutrient line (Golden Broth)
+      const yNutrient = 1.65 + 0.22 * Math.sin(x * 0.42) + 0.08 * Math.cos(x * 0.85);
+      const zNutrient = 3.85 + 0.24 * Math.cos(x * 0.38) - 0.06 * Math.sin(x * 0.72);
+      nutrientSplinePoints.push(new THREE.Vector3(x, yNutrient, zNutrient));
+
+      // Venous spore & metabolite line (Jade Spore Broth) - intertwining double-helix braid
+      const ySpore = 1.88 - 0.20 * Math.sin(x * 0.42) + 0.10 * Math.sin(x * 0.65);
+      const zSpore = 3.52 - 0.22 * Math.cos(x * 0.38) + 0.08 * Math.sin(x * 0.92);
+      sporeSplinePoints.push(new THREE.Vector3(x, ySpore, zSpore));
+    }
+
+    const nutrientCurve = new THREE.CatmullRomCurve3(nutrientSplinePoints);
+    const sporeCurve = new THREE.CatmullRomCurve3(sporeSplinePoints);
+
+    // Outer borosilicate vascular glass sheaths
+    glassTubeList.push(new THREE.TubeGeometry(nutrientCurve, 140, 0.052, 12, false));
+    glassTubeList.push(new THREE.TubeGeometry(sporeCurve, 140, 0.042, 12, false));
+
+    // Inner glowing metabolic broth fluid cores
+    nutrientList.push(new THREE.TubeGeometry(nutrientCurve, 140, 0.038, 10, false));
+    sporeList.push(new THREE.TubeGeometry(sporeCurve, 140, 0.028, 10, false));
+
+    // Vertical Siphon Capillary Drops connecting main vascular lines into key stations:
+    // Drop 1 -> Station 02 (Petri / Terrarium, x = 4.4)
+    const drop1 = new THREE.CatmullRomCurve3([
+      nutrientCurve.getPointAt((4.4 + 0.5) / 34.0),
+      new THREE.Vector3(4.4, 0.85, 2.7),
+      new THREE.Vector3(4.4, -0.05, 1.85),
+      new THREE.Vector3(4.4, -0.15, 1.45)
+    ]);
+    glassTubeList.push(new THREE.TubeGeometry(drop1, 24, 0.024, 8, false));
+    nutrientList.push(new THREE.TubeGeometry(drop1, 24, 0.016, 8, false));
+
+    // Drop 2 -> Station 04 (Culture Expansion, x = 11.05)
+    const drop2 = new THREE.CatmullRomCurve3([
+      sporeCurve.getPointAt((11.05 + 0.5) / 34.0),
+      new THREE.Vector3(11.05, 1.05, 2.8),
+      new THREE.Vector3(11.05, 0.35, 2.2),
+      new THREE.Vector3(11.05, 0.10, 1.85)
+    ]);
+    glassTubeList.push(new THREE.TubeGeometry(drop2, 24, 0.022, 8, false));
+    sporeList.push(new THREE.TubeGeometry(drop2, 24, 0.015, 8, false));
+
+    // Drop 3 -> Station 07 (Organic Heart Reactor, x = 25.0)
+    const drop3 = new THREE.CatmullRomCurve3([
+      nutrientCurve.getPointAt((25.0 + 0.5) / 34.0),
+      new THREE.Vector3(24.5, 0.8, 3.8),
+      new THREE.Vector3(24.7, 0.2, 3.65),
+      new THREE.Vector3(25.0, 0.0, 3.52)
+    ]);
+    glassTubeList.push(new THREE.TubeGeometry(drop3, 24, 0.034, 10, false));
+    nutrientList.push(new THREE.TubeGeometry(drop3, 24, 0.024, 8, false));
+
+    // Floor Biophilic Pockets (Organic basalt stones and moss cushions along viewing aisle)
+    const rockA = new THREE.DodecahedronGeometry(0.32, 1);
+    const mossGeo = new THREE.DodecahedronGeometry(0.24, 1);
+    const biophilicPockets = [
+      { x: 0.35, y: -2.15, z: 0.08, s: 1.15 },
+      { x: 5.85, y: -2.45, z: 0.05, s: 0.85 },
+      { x: 13.05, y: -2.10, z: 0.08, s: 1.05 },
+      { x: 17.85, y: -2.15, z: 0.10, s: 1.20 },
+      { x: 22.15, y: -2.20, z: 0.08, s: 1.05 },
+      { x: 27.55, y: -2.30, z: 0.08, s: 1.15 }
+    ];
+    biophilicPockets.forEach((p, idx) => {
+      rockList.push(transformGeo(rockA, [p.x, p.y, p.z + 0.06 * p.s], [0.2, idx * 0.8, 0.1], [1.35 * p.s, 0.95 * p.s, 0.58 * p.s]));
+      mossList.push(transformGeo(mossGeo, [p.x - 0.10 * p.s, p.y + 0.06 * p.s, p.z + 0.14 * p.s], [0, 0, 0], [1.3 * p.s, 0.95 * p.s, 0.45 * p.s]));
+    });
+
+    return {
+      vaultGeo: mergeGeometriesFast(vaultList),
+      ribGeo: mergeGeometriesFast(ribList),
+      glassTubeGeo: mergeGeometriesFast(glassTubeList),
+      nutrientGeo: mergeGeometriesFast(nutrientList),
+      sporeGeo: mergeGeometriesFast(sporeList),
+      rockGeo: mergeGeometriesFast(rockList),
+      mossGeo: mergeGeometriesFast(mossList)
+    };
+  }, []);
+
+  return (
+    <group name="LIVING_BIOSPHERE_CANOPY_AND_VAULTS">
+      <mesh geometry={batched.vaultGeo} material={myceliumVaultMat} />
+      <mesh geometry={batched.ribGeo} material={hyphalRibMat} />
+      <mesh geometry={batched.glassTubeGeo} material={vascularGlassMat} />
+      <mesh geometry={batched.nutrientGeo} material={nutrientFluidMat} />
+      <mesh geometry={batched.sporeGeo} material={sporeFluidMat} />
+      <mesh geometry={batched.rockGeo} material={floorRockMat} />
+      <mesh geometry={batched.mossGeo} material={floorMossMat} />
+    </group>
+  );
+}
+
+/**
+ * 2. BİYOLOJİK MİKRO-PEYZAJ / TERRARIUM YATAĞI (Zone B & C çevresi)
+ * 
+ * Petri kapları ve izolasyon istasyonunun oturduğu, kavisli mineral bordürler,
+ * zengin organik toprak katmanları, canlı yosun adacıkları ve yayılan ipeksi hif hatları.
+ * Petri kapları kaldırılmadan bu mikro-ekosistemin içine gömülür.
+ */
+export function BiologicalMicroLandscape() {
+  const basinStoneMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#28362c', // Dark basalt / mineral carved terrarium rim
+    roughness: 0.88,
+    metalness: 0.04
+  }), []);
+
+  const richSoilMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#1a221b', // Fertile organic mycorrhizal soil bed
+    roughness: 0.95,
+    metalness: 0.01
+  }), []);
+
+  const mossMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#2d5232', // Lush velvety living moss
+    roughness: 0.92,
+    metalness: 0.0
+  }), []);
+
+  const hyphalThreadMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#eee6d4', // Spreading white-cream fungal mycelium threads
+    emissive: '#443c2c',
+    emissiveIntensity: 0.20,
+    roughness: 0.75,
+    metalness: 0.02
+  }), []);
+
+  const riverPebbleMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#344037', // Polished dark river stones
+    roughness: 0.45,
+    metalness: 0.12
+  }), []);
+
+  const batched = useMemo(() => {
+    const rimList = [];
+    const soilList = [];
+    const mossList = [];
+    const hyphaList = [];
+    const pebbleList = [];
+
+    // --- TERRARIUM BASIN 1: Around Zone B (Petri Arrival & Germination, x ≈ 3.5 .. 5.6) ---
+    // Smooth curved retaining lip contour at z = 1.18 .. 1.28
+    const rimCurve1 = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(3.6, -0.65, 1.20),
+      new THREE.Vector3(4.4, -0.72, 1.20),
+      new THREE.Vector3(5.2, -0.62, 1.20),
+      new THREE.Vector3(5.4, 0.25, 1.20),
+      new THREE.Vector3(4.4, 0.35, 1.20),
+      new THREE.Vector3(3.5, 0.22, 1.20)
+    ], true);
+    rimList.push(new THREE.TubeGeometry(rimCurve1, 32, 0.032, 10, true));
+
+    // Fertile soil bed within Basin 1
+    const soilGeo1 = new THREE.CylinderGeometry(0.85, 0.88, 0.06, 24);
+    soilList.push(transformGeo(soilGeo1, [4.4, -0.15, 1.19], [0, 0, 0], [1.15, 0.95, 1]));
+
+    // --- TERRARIUM BASIN 2: Around Zone C (Isolation & Selection, x ≈ 7.1 .. 8.9) ---
+    const rimCurve2 = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(7.2, -0.68, 1.20),
+      new THREE.Vector3(8.06, -0.75, 1.20),
+      new THREE.Vector3(8.9, -0.65, 1.20),
+      new THREE.Vector3(9.0, 0.28, 1.20),
+      new THREE.Vector3(8.06, 0.36, 1.20),
+      new THREE.Vector3(7.1, 0.24, 1.20)
+    ], true);
+    rimList.push(new THREE.TubeGeometry(rimCurve2, 32, 0.032, 10, true));
+
+    const soilGeo2 = new THREE.CylinderGeometry(0.88, 0.92, 0.06, 24);
+    soilList.push(transformGeo(soilGeo2, [8.06, -0.20, 1.19], [0, 0, 0], [1.12, 0.98, 1]));
+
+    // --- Living Moss Mounds & Lichen Cushions ---
+    const mossPillow = new THREE.DodecahedronGeometry(0.09, 1);
+    const mossLocations = [
+      // Basin 1 clusters (around Petri dish at [4.4, -0.15])
+      { x: 3.82, y: -0.45, z: 1.22, s: 1.1 },
+      { x: 3.95, y: -0.32, z: 1.23, s: 0.85 },
+      { x: 4.88, y: -0.48, z: 1.22, s: 1.05 },
+      { x: 5.02, y: -0.28, z: 1.23, s: 0.9 },
+      { x: 3.92, y: 0.18, z: 1.22, s: 1.2 },
+      { x: 4.95, y: 0.16, z: 1.22, s: 1.0 },
+      // Basin 2 clusters (around Isolation at [8.06, -0.20])
+      { x: 7.42, y: -0.48, z: 1.22, s: 1.15 },
+      { x: 7.55, y: -0.35, z: 1.23, s: 0.9 },
+      { x: 8.62, y: -0.52, z: 1.22, s: 1.0 },
+      { x: 8.78, y: -0.30, z: 1.23, s: 0.95 },
+      { x: 7.52, y: 0.22, z: 1.22, s: 1.1 },
+      { x: 8.68, y: 0.20, z: 1.22, s: 1.15 }
+    ];
+
+    mossLocations.forEach((m, idx) => {
+      mossList.push(transformGeo(
+        mossPillow,
+        [m.x, m.y, m.z],
+        [0.15, idx * 0.7, 0.08],
+        [1.3 * m.s, 1.1 * m.s, 0.42 * m.s]
+      ));
+    });
+
+    // --- Silky Mycelium Hyphal Strands (Radiating across soil) ---
+    const hyphalStrand = new THREE.CylinderGeometry(0.0035, 0.0035, 0.24, 6);
+    for (let k = 0; k < 18; k++) {
+      const ang = (k / 18) * Math.PI * 2;
+      // In Basin 1
+      const x1 = 4.4 + Math.cos(ang) * 0.45;
+      const y1 = -0.15 + Math.sin(ang) * 0.35;
+      hyphaList.push(transformGeo(hyphalStrand, [x1, y1, 1.224], [0, 0, ang + 0.35], [1, 1.1, 1]));
+
+      // In Basin 2
+      const x2 = 8.06 + Math.cos(ang) * 0.48;
+      const y2 = -0.20 + Math.sin(ang) * 0.38;
+      hyphaList.push(transformGeo(hyphalStrand, [x2, y2, 1.224], [0, 0, ang - 0.25], [1, 1.2, 1]));
+    }
+
+    // --- Smooth River Pebbles & Basalt Stones ---
+    const pebbleGeo = new THREE.DodecahedronGeometry(0.038, 1);
+    for (let k = 0; k < 14; k++) {
+      const ang = (k / 14) * Math.PI * 2 + 0.2;
+      const px1 = 4.4 + Math.cos(ang) * 0.68;
+      const py1 = -0.15 + Math.sin(ang) * 0.48;
+      pebbleList.push(transformGeo(pebbleGeo, [px1, py1, 1.218], [0.2, k, 0], [1.3, 0.9, 0.5]));
+
+      const px2 = 8.06 + Math.cos(ang) * 0.72;
+      const py2 = -0.20 + Math.sin(ang) * 0.52;
+      pebbleList.push(transformGeo(pebbleGeo, [px2, py2, 1.218], [0.1, k * 1.3, 0], [1.2, 1.0, 0.55]));
+    }
+
+    return {
+      rimGeo: mergeGeometriesFast(rimList),
+      soilGeo: mergeGeometriesFast(soilList),
+      mossGeo: mergeGeometriesFast(mossList),
+      hyphaGeo: mergeGeometriesFast(hyphaList),
+      pebbleGeo: mergeGeometriesFast(pebbleList)
+    };
+  }, []);
+
+  return (
+    <group name="BIOLOGICAL_MICRO_LANDSCAPE_TERRARIUM">
+      <mesh geometry={batched.rimGeo} material={basinStoneMat} />
+      <mesh geometry={batched.soilGeo} material={richSoilMat} />
+      <mesh geometry={batched.mossGeo} material={mossMat} />
+      <mesh geometry={batched.hyphaGeo} material={hyphalThreadMat} />
+      <mesh geometry={batched.pebbleGeo} material={riverPebbleMat} />
+    </group>
+  );
+}
+
+/**
+ * 3. ASKIDA DAMLA REAKTÖRLERİ / LEVİTE KAPSÜLLER (Zone D & E çevresi)
+ * 
+ * Erlenmeyer çalkalayıcı ve kuluçka ünitelerinin üzerinde asılı duran,
+ * ters damla / tohum kozası formunda aerodinamik şeffaf biyo-reaktörler.
+ * İçlerinde ışıldayan biyokütle çekirdeği ve üstten inen kılcal besleme hatları.
+ */
+export function SuspendedDropletReactors({ progressRef }) {
+  const groupRef = useRef();
+
+  const capsuleGlassMat = useMemo(() => createFastGlassMaterial({
+    color: '#d6f6e8',
+    opacity: 0.35,
+    roughness: 0.05,
+    metalness: 0.06,
+    side: THREE.DoubleSide
+  }), []);
+
+  const capsuleCoreMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#f5ecd6', // Cultured living fungal mycelium clump
+    emissive: '#8c5818',
+    emissiveIntensity: 0.38,
+    roughness: 0.55,
+    metalness: 0.02
+  }), []);
+
+  const capsuleCollarMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#c2b69e', // Bone/composite collar rings
+    roughness: 0.55,
+    metalness: 0.12
+  }), []);
+
+  const tendrilCableMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#464a44', // High-tensile carbon-mycelium suspension cables
+    roughness: 0.75,
+    metalness: 0.20
+  }), []);
+
+  const batched = useMemo(() => {
+    const glassList = [];
+    const coreList = [];
+    const collarList = [];
+    const cableList = [];
+
+    // 3 Levitating / Suspended Droplet Reactors
+    const dropletSpecs = [
+      { x: 10.85, y: 0.45, z: 2.65, scale: 1.05 },
+      { x: 12.65, y: 0.55, z: 2.92, scale: 1.18 },
+      { x: 14.35, y: 0.38, z: 2.72, scale: 1.02 }
+    ];
+
+    for (const d of dropletSpecs) {
+      const s = d.scale;
+      // Inverted Teardrop / Seed-Pod Outer Glass Shell:
+      // Top hemisphere dome (radius 0.18 * s)
+      glassList.push(transformGeo(
+        new THREE.SphereGeometry(0.18 * s, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        [d.x, d.y, d.z + 0.06 * s]
+      ));
+      // Tapering inverted cone lower body (height 0.36 * s)
+      glassList.push(transformGeo(
+        new THREE.CylinderGeometry(0.18 * s, 0.035 * s, 0.36 * s, 20, 1, true),
+        [d.x, d.y, d.z - 0.12 * s],
+        [Math.PI / 2, 0, 0]
+      ));
+      // Bottom drainage rounded tip
+      glassList.push(transformGeo(
+        new THREE.SphereGeometry(0.035 * s, 14, 8),
+        [d.x, d.y, d.z - 0.30 * s]
+      ));
+
+      // Collar rings at equator and top crown
+      collarList.push(transformGeo(
+        new THREE.TorusGeometry(0.182 * s, 0.012 * s, 8, 24),
+        [d.x, d.y, d.z + 0.06 * s]
+      ));
+      collarList.push(transformGeo(
+        new THREE.TorusGeometry(0.065 * s, 0.009 * s, 8, 18),
+        [d.x, d.y, d.z + 0.24 * s]
+      ));
+
+      // Inner Floating Fungal Biomass Core
+      coreList.push(transformGeo(
+        new THREE.DodecahedronGeometry(0.088 * s, 1),
+        [d.x, d.y, d.z - 0.04 * s],
+        [0.2, 0.4, 0.1],
+        [1.1, 0.95, 1.25]
+      ));
+
+      // Suspension Tendril Cable extending straight up to the ceiling vault (z ≈ 4.45)
+      const cableHeight = 4.45 - (d.z + 0.24 * s);
+      cableList.push(transformGeo(
+        new THREE.CylinderGeometry(0.004, 0.004, cableHeight, 6),
+        [d.x, d.y, (d.z + 0.24 * s) + cableHeight * 0.5],
+        [Math.PI / 2, 0, 0]
+      ));
+
+      // Curved capillary nutrient feeder loop entering top crown
+      const capillaryCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(d.x - 0.35, d.y + 0.4, d.z + 0.65 * s),
+        new THREE.Vector3(d.x - 0.15, d.y + 0.15, d.z + 0.45 * s),
+        new THREE.Vector3(d.x, d.y, d.z + 0.24 * s)
+      ]);
+      glassList.push(new THREE.TubeGeometry(capillaryCurve, 16, 0.008 * s, 6, false));
+    }
+
+    return {
+      glassGeo: mergeGeometriesFast(glassList),
+      coreGeo: mergeGeometriesFast(coreList),
+      collarGeo: mergeGeometriesFast(collarList),
+      cableGeo: mergeGeometriesFast(cableList)
+    };
+  }, []);
+
+  useFrame(() => {
+    const p = progressRef ? progressRef.current : 0;
+    // Visible throughout culture expansion & incubation zones
+    if (groupRef.current) {
+      groupRef.current.visible = p >= 0.28 && p <= 0.82;
+    }
+  });
+
+  return (
+    <group ref={groupRef} name="SUSPENDED_DROPLET_REACTORS" visible={false}>
+      <mesh geometry={batched.glassGeo} material={capsuleGlassMat} />
+      <mesh geometry={batched.coreGeo} material={capsuleCoreMat} />
+      <mesh geometry={batched.collarGeo} material={capsuleCollarMat} />
+      <mesh geometry={batched.cableGeo} material={tendrilCableMat} />
+    </group>
+  );
+}
+
+/**
+ * 4. ORGANİK KALP REAKTÖRÜ (Zone G çevresi)
+ * 
+ * Hassas fermantasyon istasyonunu soğuk bir bira/ilaç tankından çıkarıp,
+ * çift hazneli anatomik bir yaşayan kalbe dönüştüren biyo-reaktör.
+ * Aortik kavisli damarlar, spiral mycelium sinirleri/kas lifleri ve
+ * altın rengi biyo-akışkan girdapları.
+ */
+export function OrganicHeartReactor({ progressRef }) {
+  const groupRef = useRef();
+
+  const heartGlassMat = useMemo(() => createFastGlassMaterial({
+    color: '#dcf5e7',
+    opacity: 0.32,
+    roughness: 0.05,
+    metalness: 0.08,
+    side: THREE.DoubleSide
+  }), []);
+
+  const heartSinewMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#ded3be', // Spiral fibrous mycelium muscle bands / structural sinews
+    roughness: 0.78,
+    metalness: 0.04
+  }), []);
+
+  const aorticVesselMat = useMemo(() => createFastGlassMaterial({
+    color: '#b6eed3',
+    opacity: 0.38,
+    roughness: 0.06,
+    metalness: 0.10
+  }), []);
+
+  const batched = useMemo(() => {
+    const glassChamberList = [];
+    const sinewList = [];
+    const aorticList = [];
+
+    const hX = 25.0, hY = 0.0;
+
+    // --- Ventricle 1: Primary Cardiac Bulb (Left Ventricle) ---
+    // Fluid anatomical egg/cardiac bulb at [25.0, 0.0, 2.45]
+    glassChamberList.push(transformGeo(
+      new THREE.SphereGeometry(1.02, 28, 16),
+      [hX - 0.08, hY - 0.05, 2.45],
+      [0.08, -0.06, 0.12],
+      [1.08, 0.96, 1.38]
+    ));
+
+    // --- Ventricle 2: Secondary Cardiac Chamber (Right Atrium) ---
+    // Seamlessly fused alongside at [25.62, 0.26, 2.72]
+    glassChamberList.push(transformGeo(
+      new THREE.SphereGeometry(0.74, 24, 14),
+      [hX + 0.62, hY + 0.26, 2.72],
+      [-0.10, 0.15, -0.08],
+      [0.92, 0.88, 1.15]
+    ));
+
+    // --- Mycelial Pericardial Sinews (Spiral Structural Ribs) ---
+    // 3 continuous helical ribbons wrapping around the cardiac body like muscle sinews
+    for (let k = 0; k < 3; k++) {
+      const sinewPts = [];
+      const zStart = 1.35 + k * 0.32;
+      const numSteps = 24;
+      for (let i = 0; i <= numSteps; i++) {
+        const u = i / numSteps;
+        const ang = u * Math.PI * 2.2 + (k * Math.PI * 0.65);
+        const z = zStart + u * 1.55;
+        // Radius matches the bulging cardiac profile
+        const rProfile = 1.05 * Math.sin(u * Math.PI * 0.92 + 0.15) + 0.12;
+        const sx = hX + Math.cos(ang) * rProfile;
+        const sy = hY + Math.sin(ang) * (rProfile * 0.92);
+        sinewPts.push(new THREE.Vector3(sx, sy, z));
+      }
+      sinewList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(sinewPts), 36, 0.024, 8, false));
+    }
+
+    // --- Aortic Arch Vessels (Arteria Mycelia & Vena Metabolica) ---
+    // Primary Aortic Arch: Sweeping out of the top of the heart [25.0, 0.0, 3.45]
+    // ascending gracefully to [24.1, 0.25, 4.35] and merging into overhead vascular biopipes
+    const aortaPoints = [
+      new THREE.Vector3(hX, hY, 3.45),
+      new THREE.Vector3(hX - 0.18, hY + 0.12, 3.85),
+      new THREE.Vector3(hX - 0.55, hY + 0.28, 4.22),
+      new THREE.Vector3(hX - 1.25, hY + 0.35, 4.38),
+      new THREE.Vector3(hX - 2.10, hY + 0.42, 4.35)
+    ];
+    aorticList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(aortaPoints), 28, 0.068, 10, false));
+
+    // Venous Return Conduit: Looping from secondary atrium down along the lateral flank
+    const venousPoints = [
+      new THREE.Vector3(hX + 0.62, hY + 0.26, 3.35),
+      new THREE.Vector3(hX + 0.92, hY + 0.35, 3.12),
+      new THREE.Vector3(hX + 1.05, hY + 0.15, 2.35),
+      new THREE.Vector3(hX + 0.88, hY - 0.10, 1.62),
+      new THREE.Vector3(hX + 0.45, hY - 0.20, 1.25)
+    ];
+    aorticList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(venousPoints), 28, 0.052, 10, false));
+
+    return {
+      glassChamberGeo: mergeGeometriesFast(glassChamberList),
+      sinewGeo: mergeGeometriesFast(sinewList),
+      aorticGeo: mergeGeometriesFast(aorticList)
+    };
+  }, []);
+
+  useFrame(() => {
+    const p = progressRef ? progressRef.current : 0;
+    if (groupRef.current) {
+      groupRef.current.visible = p >= 0.72;
+    }
+  });
+
+  return (
+    <group ref={groupRef} name="ORGANIC_HEART_REACTOR" visible={false}>
+      <mesh geometry={batched.glassChamberGeo} material={heartGlassMat} />
+      <mesh geometry={batched.sinewGeo} material={heartSinewMat} />
+      <mesh geometry={batched.aorticGeo} material={aorticVesselMat} />
+    </group>
+  );
+}

@@ -2,6 +2,12 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { transformGeo, mergeGeometriesFast, createFastGlassMaterial } from '../data/gpuOptimize.js';
+import {
+  LivingBiosphereCanopyAndVaults,
+  BiologicalMicroLandscape,
+  SuspendedDropletReactors,
+  OrganicHeartReactor
+} from './LivingBiosphereArchitecture.jsx';
 
 // Pure 3D Architectural, Precision Fermenter Interior (Zone G) & Chalkboard + Scientist Desk (Zone H) Pass.
 // Zero 2D texture uploads, geometry-batched by material for 60fps scroll performance.
@@ -1191,7 +1197,10 @@ function ZoneHOptimizationHero({ progressRef }) {
 export default function HighFidelityFactoryPass({ progressRef }) {
   return (
     <group name="HUNER_HIGH_FIDELITY_FACTORY_PASS">
-      <CathedralArchitectureAndBiophilia />
+      <LivingBiosphereCanopyAndVaults />
+      <BiologicalMicroLandscape />
+      <SuspendedDropletReactors progressRef={progressRef} />
+      <OrganicHeartReactor progressRef={progressRef} />
       <ZoneGFermentationHero progressRef={progressRef} />
       <ZoneHOptimizationHero progressRef={progressRef} />
     </group>
