@@ -136,30 +136,30 @@ const sporeFragmentShader = `
     float backLight = backTerm * backTerm;
     float warmBounce = max(dot(N, L2), 0.0);
 
-    vec3 deepCore = vec3(0.03, 0.12, 0.06);
-    vec3 cytoplasm = vec3(0.20, 0.48, 0.28);
-    vec3 ridgeColor = vec3(0.68, 0.88, 0.62);
-    vec3 rimGlow = vec3(0.85, 1.0, 0.78);
-    vec3 warmGold = vec3(0.98, 0.85, 0.52);
+    vec3 deepCore = vec3(0.06, 0.20, 0.12);
+    vec3 cytoplasm = vec3(0.38, 0.74, 0.48);
+    vec3 ridgeColor = vec3(0.85, 0.96, 0.80);
+    vec3 rimGlow = vec3(0.92, 1.0, 0.84);
+    vec3 warmGold = vec3(0.98, 0.88, 0.60);
 
-    // Deep sculptural shading with pronounced chitin surface micro-relief
-    vec3 col = mix(deepCore, cytoplasm, 0.25 + 0.55 * diff + 0.20 * backLight);
-    col = mix(col, ridgeColor, network * (0.42 + 0.58 * fresnel));
-    col += rimGlow * fresnel * 0.88;
-    col += warmGold * rimTight * 0.75;
-    col += warmGold * warmBounce * 0.18;
+    // Luminous living biological shading with translucent chitin depth
+    vec3 col = mix(deepCore, cytoplasm, 0.35 + 0.45 * diff + 0.25 * backLight);
+    col = mix(col, ridgeColor, network * (0.50 + 0.50 * fresnel));
+    col += rimGlow * fresnel * 0.90;
+    col += warmGold * rimTight * 0.65;
+    col += warmGold * warmBounce * 0.20;
 
     // Handoff internal luminescence pulse (t: 0 -> 1)
-    vec3 internalGlowColor = vec3(0.45, 0.92, 0.58);
+    vec3 internalGlowColor = vec3(0.65, 0.98, 0.72);
     float glowTerm = clamp(uGlow * 0.45, 0.0, 1.0);
-    col = mix(col, internalGlowColor * 1.10, glowTerm * 0.45);
-    col += internalGlowColor * (0.22 * uGlow * (0.35 + 0.65 * diff));
+    col = mix(col, internalGlowColor * 1.15, glowTerm * 0.55);
+    col += internalGlowColor * (0.28 * uGlow * (0.45 + 0.55 * diff));
 
     vec3 H = normalize(L1 + V);
-    float spec = pow(max(dot(N, H), 0.0), 36.0);
-    col += vec3(0.92, 0.98, 0.88) * spec * 0.55;
+    float spec = pow(max(dot(N, H), 0.0), 32.0);
+    col += vec3(0.95, 1.0, 0.92) * spec * 0.48;
 
-    float alpha = clamp((0.94 + 0.06 * fresnel + spec * 0.15) * uReveal, 0.0, 1.0) * uOpacity;
+    float alpha = clamp((0.28 + 0.52 * fresnel + 0.38 * network + 0.22 * spec + uGlow * 0.35) * uReveal, 0.0, 0.98) * uOpacity;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -416,17 +416,17 @@ export default function SporeReveal({ progressRef, handoffRef }) {
 
     const t = beat(p);
 
-    const reveal = inCoda
-      ? smooth(0.92, 0.96, p)
-      : (1.0 - smooth(0.82, 0.99, t));
-    const faint = inCoda
-      ? 0.80
-      : (1.0 - smooth(0.85, 1.0, t));
-
     const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
     const handoffBeam = smooth(0.15, 0.85, handoff);
     const handoffBokeh = smooth(0.2, 0.9, handoff);
     const uGlowVal = (1.0 - handoff) * 2.8;
+
+    const reveal = inCoda
+      ? smooth(0.92, 0.96, p)
+      : (handoff < 0.99 ? 1.0 : smooth(0.04, 0.28, t)) * (1.0 - smooth(0.76, 0.99, t));
+    const faint = inCoda
+      ? 0.80
+      : (handoff < 0.99 ? 1.0 : smooth(0.0, 0.22, t)) * (1.0 - smooth(0.84, 1.0, t));
 
     sporeShader.uniforms.uReveal.value = Math.max(0.22, reveal);
     sporeShader.uniforms.uGlow.value = uGlowVal;
@@ -436,9 +436,9 @@ export default function SporeReveal({ progressRef, handoffRef }) {
     beamShader.uniforms.uReveal.value = (0.38 + 0.62 * reveal) * 0.95 * handoffBeam;
     bokehShader.uniforms.uOpacity.value = 0.68 * Math.max(0.25, faint) * handoffBokeh;
 
-    // Anatomical Cutaway Opening Transition (progress: 0.32 -> 0.67 in Station 01 beat)
-    // During handoff (handoff < 0.999), cell is 100% closed
-    const opening = inCoda ? 0.0 : (handoff < 0.999 ? 0.0 : smooth(0.32, 0.67, t));
+    // Anatomical Cutaway Opening Transition (progress: 0.12 -> 0.52 in Station 01 beat)
+    // Smoothly slides and dissolves the front cap to reveal the inner organelle anatomy!
+    const opening = inCoda ? 0.0 : (handoff < 0.60 ? 0.0 : smooth(0.12, 0.52, t));
     frontSporeShader.uniforms.uOpacity.value = Math.max(0.0, 1.0 - opening * 1.35);
 
     if (frontShellRef.current) {
@@ -501,7 +501,7 @@ export default function SporeReveal({ progressRef, handoffRef }) {
           <mesh ref={frontShellRef} geometry={frontShellGeo} material={frontSporeShader} />
 
           {/* 3. Authentic Huner Biofoundry FungalCell Organelle World */}
-          <FungalCellAnatomy progressRef={progressRef} />
+          <FungalCellAnatomy progressRef={progressRef} handoffRef={handoffRef} />
 
           {/* 4. Hyphal Germ Tube sprouting from polar hilum */}
           <mesh ref={germTubeRef} geometry={germTubeGeo} material={sporeShader} visible={false} />

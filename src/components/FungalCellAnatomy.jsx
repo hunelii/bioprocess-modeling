@@ -68,8 +68,7 @@ export function deformSporeVertex(x, y, z) {
  * FungalCellAnatomy: The inner cellular organelle world of Huner Biofoundry,
  * integrated seamlessly inside the Bioprocess 3D basidiospore cutaway.
  */
-export default function FungalCellAnatomy({ progressRef, opening: staticOpening }) {
-  const rootRef = useRef();
+export default function FungalCellAnatomy({ progressRef, handoffRef }) {
   const relief = useMemo(() => createReliefTexture(512), []);
   const light1Ref = useRef();
   const light2Ref = useRef();
@@ -77,11 +76,10 @@ export default function FungalCellAnatomy({ progressRef, opening: staticOpening 
   useFrame(() => {
     const p = progressRef ? clamp01(progressRef.current) : 0;
     const t = beat(p);
-    const opening = staticOpening !== undefined ? staticOpening : smooth(0.32, 0.67, t);
-    if (rootRef.current) {
-      rootRef.current.visible = opening > 0.02;
-    }
-    const intensity = Math.max(0.08, opening);
+    const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
+    const inCoda = p > 0.92;
+    const opening = inCoda ? 0.0 : (handoff < 0.60 ? 0.0 : smooth(0.12, 0.52, t));
+    const intensity = Math.max(0.40, opening);
     if (light1Ref.current) light1Ref.current.intensity = 2.4 * intensity;
     if (light2Ref.current) light2Ref.current.intensity = 1.2 * intensity;
   });
@@ -605,7 +603,7 @@ export default function FungalCellAnatomy({ progressRef, opening: staticOpening 
   }, [materials.ribosome]);
 
   return (
-    <group ref={rootRef} name="FUNGAL_CELL_ORGANELLES" visible={false}>
+    <group name="FUNGAL_CELL_ORGANELLES">
       <pointLight ref={light1Ref} position={[0.2, 0.4, 0.5]} intensity={0.2} color="#effee8" distance={3.2} decay={2} />
       <pointLight ref={light2Ref} position={[-0.4, -0.3, 0.4]} intensity={0.1} color="#f7ecd0" distance={2.8} decay={2} />
 
