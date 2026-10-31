@@ -69,8 +69,13 @@ function World({ progressRef, handoffRef, registerInvalidate, detail, onReady })
         || name.startsWith('H_illustrative_curve_')
         || name.startsWith('H_GRAPH_TRACE_')
         || name.startsWith('H_status_base_');
+      // Hide cold industrial factory cage framing (continuous lintel, warehouse box columns, and ceiling trusses)
+      // so the Living Biosphere organic hyphal vault, vascular conduits, and equipment are completely open and unobstructed
+      const legacyFrontTruss = name === 'continuous_lintel'
+        || /^column_\d+_-?3/.test(name)
+        || /^truss_cross_\d+$/.test(name);
 
-      if (lowPolySpore || badLegacyIsolation || isHypha || legacyMacro || legacyFruit || legacyExpansion || legacyIncubation || legacyFerment || legacyZoneHScreen) {
+      if (lowPolySpore || badLegacyIsolation || isHypha || legacyMacro || legacyFruit || legacyExpansion || legacyIncubation || legacyFerment || legacyZoneHScreen || legacyFrontTruss) {
         object.visible = false;
         toRemove.push(object);
         return;

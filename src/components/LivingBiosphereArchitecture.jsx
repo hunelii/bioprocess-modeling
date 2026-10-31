@@ -305,14 +305,6 @@ export function BiologicalMicroLandscape() {
     metalness: 0.0
   }), []);
 
-  const hyphalThreadMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#f0ece1',
-    emissive: '#5c543f',
-    emissiveIntensity: 0.25,
-    roughness: 0.70,
-    metalness: 0.02
-  }), []);
-
   const riverPebbleMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#2c372f',
     roughness: 0.40,
@@ -327,18 +319,23 @@ export function BiologicalMicroLandscape() {
     const pebbleList = [];
 
     // 1. Intimate Terrarium Collar hugging the Petri Dish (visible in macro close-up view at [4.4, -0.15, 1.29])
-    // Organic soil bed cushion supporting the Petri dish pedestal
-    const petriSoilPlate = new THREE.CylinderGeometry(0.068, 0.075, 0.016, 24);
+    // Beveled organic pedestal & fertile peat substrate bed
+    const petriSoilPlate = new THREE.CylinderGeometry(0.065, 0.076, 0.016, 32);
     soilList.push(transformGeo(petriSoilPlate, [4.40, -0.15, 1.254], [Math.PI / 2, 0, 0]));
 
-    const microMossGeo = new THREE.DodecahedronGeometry(0.011, 1);
-    const numMicroMoss = 16;
+    // Continuous sculpted velvety moss cushion ring directly framing the Petri dish base
+    const mossTorusGeo = new THREE.TorusGeometry(0.054, 0.009, 10, 36);
+    mossList.push(transformGeo(mossTorusGeo, [4.40, -0.15, 1.266], [0, 0, 0], [1.0, 1.0, 0.65]));
+
+    // Multi-toned moss mounds and chartreuse tufts clustered around the dish
+    const microMossGeo = new THREE.DodecahedronGeometry(0.009, 1);
+    const numMicroMoss = 18;
     for (let i = 0; i < numMicroMoss; i++) {
       const a = (i / numMicroMoss) * Math.PI * 2;
-      const r = 0.049 + 0.009 * (i % 3);
+      const r = 0.048 + 0.010 * (i % 3);
       const mx = 4.40 + Math.cos(a) * r;
       const my = -0.15 + Math.sin(a) * r;
-      const mz = 1.266 + 0.003 * Math.sin(i * 1.8);
+      const mz = 1.268 + 0.003 * Math.sin(i * 1.8);
       const isChartreuse = i % 2 === 0;
       const targetList = isChartreuse ? chartreuseList : mossList;
       targetList.push(transformGeo(
@@ -349,14 +346,14 @@ export function BiologicalMicroLandscape() {
       ));
     }
 
-    // Micro river pebbles tucked into the moss around Petri rim
-    const microPebbleGeo = new THREE.DodecahedronGeometry(0.006, 1);
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + 0.25;
-      const r = 0.058;
+    // Micro polished basalt pebbles tucked along the moss rim
+    const microPebbleGeo = new THREE.DodecahedronGeometry(0.0055, 1);
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + 0.20;
+      const r = 0.056 + 0.004 * (k % 2);
       pebbleList.push(transformGeo(
         microPebbleGeo,
-        [4.40 + Math.cos(a) * r, -0.15 + Math.sin(a) * r, 1.264],
+        [4.40 + Math.cos(a) * r, -0.15 + Math.sin(a) * r, 1.265],
         [0.2, k * 1.1, 0.1],
         [1.2, 0.9, 0.6]
       ));
@@ -381,16 +378,15 @@ export function BiologicalMicroLandscape() {
     const soilGeo1 = new THREE.CylinderGeometry(0.78, 0.82, 0.018, 32);
     soilList.push(transformGeo(soilGeo1, [4.4, -0.15, zB + 0.009], [Math.PI / 2, 0, 0], [1.15, 0.88, 1]));
 
-    // Lush Living Moss Cushions around Zone B (sitting proudly on the soil at z = 1.248 .. 1.268)
+    // Lush Living Moss Cushions around Zone B perimeter (placed safely away from camera sightline)
     const mossPillow = new THREE.DodecahedronGeometry(0.065, 1);
     const mossBLocations = [
       { x: 3.75, y: -0.46, z: zB + 0.024, s: 1.25, type: 'dark' },
       { x: 5.05, y: -0.48, z: zB + 0.024, s: 1.20, type: 'chartreuse' },
       { x: 3.65, y: -0.12, z: zB + 0.022, s: 1.10, type: 'dark' },
       { x: 5.15, y: -0.10, z: zB + 0.024, s: 1.15, type: 'chartreuse' },
-      { x: 3.80, y: 0.24, z: zB + 0.024, s: 1.30, type: 'chartreuse' },
-      { x: 4.40, y: 0.30, z: zB + 0.026, s: 1.40, type: 'dark' },
-      { x: 5.00, y: 0.25, z: zB + 0.024, s: 1.25, type: 'dark' }
+      { x: 3.70, y: 0.12, z: zB + 0.020, s: 1.05, type: 'chartreuse' },
+      { x: 5.10, y: 0.14, z: zB + 0.020, s: 1.05, type: 'dark' }
     ];
 
     mossBLocations.forEach((m, idx) => {
@@ -426,6 +422,40 @@ export function BiologicalMicroLandscape() {
     // =========================================================================
     const zC = 1.208;
 
+    // Intimate Terrarium Collar hugging the Isolation Petri Dish at [8.06, -0.20]
+    const isolSoilPlate = new THREE.CylinderGeometry(0.088, 0.096, 0.016, 28);
+    soilList.push(transformGeo(isolSoilPlate, [8.06, -0.20, zC + 0.046], [Math.PI / 2, 0, 0]));
+
+    const isolTorusGeo = new THREE.TorusGeometry(0.076, 0.011, 10, 36);
+    mossList.push(transformGeo(isolTorusGeo, [8.06, -0.20, zC + 0.056], [0, 0, 0], [1.0, 1.0, 0.65]));
+
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2;
+      const r = 0.072 + 0.010 * (i % 3);
+      const mx = 8.06 + Math.cos(a) * r;
+      const my = -0.20 + Math.sin(a) * r;
+      const mz = zC + 0.058 + 0.003 * Math.sin(i * 1.8);
+      const isChartreuse = i % 2 === 0;
+      const targetList = isChartreuse ? chartreuseList : mossList;
+      targetList.push(transformGeo(
+        microMossGeo,
+        [mx, my, mz],
+        [0.1, i * 0.45, 0.05],
+        [1.15, 1.05, 0.55]
+      ));
+    }
+
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 + 0.15;
+      const r = 0.084 + 0.006 * (k % 2);
+      pebbleList.push(transformGeo(
+        microPebbleGeo,
+        [8.06 + Math.cos(a) * r, -0.20 + Math.sin(a) * r, zC + 0.056],
+        [0.2, k * 1.1, 0.1],
+        [1.2, 0.9, 0.6]
+      ));
+    }
+
     const rimCurve2 = new THREE.CatmullRomCurve3([
       new THREE.Vector3(7.20, -0.65, zC + 0.015),
       new THREE.Vector3(8.06, -0.75, zC + 0.015),
@@ -444,9 +474,8 @@ export function BiologicalMicroLandscape() {
       { x: 8.75, y: -0.50, z: zC + 0.024, s: 1.25, type: 'chartreuse' },
       { x: 7.25, y: -0.15, z: zC + 0.022, s: 1.10, type: 'chartreuse' },
       { x: 8.85, y: -0.12, z: zC + 0.024, s: 1.15, type: 'dark' },
-      { x: 7.45, y: 0.24, z: zC + 0.024, s: 1.30, type: 'dark' },
-      { x: 8.06, y: 0.32, z: zC + 0.026, s: 1.45, type: 'chartreuse' },
-      { x: 8.68, y: 0.26, z: zC + 0.024, s: 1.20, type: 'dark' }
+      { x: 7.45, y: 0.20, z: zC + 0.024, s: 1.15, type: 'dark' },
+      { x: 8.68, y: 0.22, z: zC + 0.024, s: 1.15, type: 'dark' }
     ];
 
     mossCLocations.forEach((m, idx) => {
@@ -505,15 +534,15 @@ export function SuspendedDropletReactors({ progressRef }) {
     metalness: 0.02
   }), []);
 
-  const capsuleLiquidMat = new THREE.MeshStandardMaterial({
-    color: '#e29c36',
-    emissive: '#72420e',
-    emissiveIntensity: 0.40,
-    roughness: 0.25,
-    metalness: 0.05,
+  const capsuleLiquidMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#f09e32',
+    emissive: '#b0580e',
+    emissiveIntensity: 0.68,
+    roughness: 0.18,
+    metalness: 0.08,
     transparent: true,
-    opacity: 0.75
-  });
+    opacity: 0.85
+  }), []);
 
   const capsuleCollarMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#c2b69e', // Bone/composite collar rings
@@ -658,13 +687,13 @@ export function OrganicHeartReactor({ progressRef }) {
   }), []);
 
   const heartPulseMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#df8226',
-    emissive: '#a6480e',
-    emissiveIntensity: 0.65,
-    roughness: 0.35,
+    color: '#e88e2c',
+    emissive: '#c25812',
+    emissiveIntensity: 0.88,
+    roughness: 0.25,
     metalness: 0.05,
     transparent: true,
-    opacity: 0.82
+    opacity: 0.88
   }), []);
 
   const batched = useMemo(() => {
@@ -716,6 +745,10 @@ export function OrganicHeartReactor({ progressRef }) {
     aorticList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(venousPoints), 32, 0.052, 10, false));
     pulseList.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(venousPoints), 32, 0.034, 8, false));
 
+    // Central Metabolic Bioreactor Heart (Translucent Pulsing Core inside glass)
+    const heartCoreSphere = new THREE.SphereGeometry(0.42, 28, 22);
+    pulseList.push(transformGeo(heartCoreSphere, [hX, hY, 2.30], [0, 0, 0], [1.0, 0.94, 1.12]));
+
     return {
       sinewGeo: mergeGeometriesFast(sinewList),
       aorticGeo: mergeGeometriesFast(aorticList),
@@ -741,6 +774,7 @@ export function OrganicHeartReactor({ progressRef }) {
       <mesh geometry={batched.sinewGeo} material={heartSinewMat} />
       <mesh geometry={batched.aorticGeo} material={aorticVesselMat} />
       <mesh ref={heartCoreRef} geometry={batched.pulseGeo} material={heartPulseMat} />
+      <pointLight position={[25.0, 0.0, 2.32]} color="#ffa23a" intensity={2.8} distance={4.5} decay={2} />
     </group>
   );
 }

@@ -136,29 +136,30 @@ const sporeFragmentShader = `
     float backLight = backTerm * backTerm;
     float warmBounce = max(dot(N, L2), 0.0);
 
-    vec3 deepCore = vec3(0.08, 0.24, 0.15);
-    vec3 cytoplasm = vec3(0.42, 0.76, 0.53);
-    vec3 ridgeColor = vec3(0.88, 0.98, 0.84);
-    vec3 rimGlow = vec3(0.94, 1.0, 0.86);
-    vec3 warmGold = vec3(0.98, 0.88, 0.64);
+    vec3 deepCore = vec3(0.03, 0.12, 0.06);
+    vec3 cytoplasm = vec3(0.20, 0.48, 0.28);
+    vec3 ridgeColor = vec3(0.68, 0.88, 0.62);
+    vec3 rimGlow = vec3(0.85, 1.0, 0.78);
+    vec3 warmGold = vec3(0.98, 0.85, 0.52);
 
-    vec3 col = mix(deepCore, cytoplasm, 0.35 + 0.45 * diff + 0.25 * backLight);
-    col = mix(col, ridgeColor, network * (0.52 + 0.48 * fresnel));
-    col += rimGlow * fresnel * 0.92;
-    col += warmGold * rimTight * 0.62;
-    col += warmGold * warmBounce * 0.22;
+    // Deep sculptural shading with pronounced chitin surface micro-relief
+    vec3 col = mix(deepCore, cytoplasm, 0.25 + 0.55 * diff + 0.20 * backLight);
+    col = mix(col, ridgeColor, network * (0.42 + 0.58 * fresnel));
+    col += rimGlow * fresnel * 0.88;
+    col += warmGold * rimTight * 0.75;
+    col += warmGold * warmBounce * 0.18;
 
     // Handoff internal luminescence pulse (t: 0 -> 1)
-    vec3 internalGlowColor = vec3(0.55, 0.95, 0.65);
+    vec3 internalGlowColor = vec3(0.45, 0.92, 0.58);
     float glowTerm = clamp(uGlow * 0.45, 0.0, 1.0);
-    col = mix(col, internalGlowColor * 1.15, glowTerm * 0.55);
-    col += internalGlowColor * (0.28 * uGlow * (0.45 + 0.55 * diff));
+    col = mix(col, internalGlowColor * 1.10, glowTerm * 0.45);
+    col += internalGlowColor * (0.22 * uGlow * (0.35 + 0.65 * diff));
 
     vec3 H = normalize(L1 + V);
-    float spec = pow(max(dot(N, H), 0.0), 32.0);
-    col += vec3(0.95, 1.0, 0.92) * spec * 0.48;
+    float spec = pow(max(dot(N, H), 0.0), 36.0);
+    col += vec3(0.92, 0.98, 0.88) * spec * 0.55;
 
-    float alpha = clamp((0.92 + 0.08 * fresnel + spec * 0.15) * uReveal, 0.0, 1.0) * uOpacity;
+    float alpha = clamp((0.94 + 0.06 * fresnel + spec * 0.15) * uReveal, 0.0, 1.0) * uOpacity;
     gl_FragColor = vec4(col, alpha);
   }
 `;
@@ -417,10 +418,10 @@ export default function SporeReveal({ progressRef, handoffRef }) {
 
     const reveal = inCoda
       ? smooth(0.92, 0.96, p)
-      : smooth(0.04, 0.32, t) * (1.0 - smooth(0.76, 0.99, t));
+      : (1.0 - smooth(0.82, 0.99, t));
     const faint = inCoda
       ? 0.80
-      : smooth(0.0, 0.24, t) * (1.0 - smooth(0.84, 1.0, t));
+      : (1.0 - smooth(0.85, 1.0, t));
 
     const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
     const handoffBeam = smooth(0.15, 0.85, handoff);

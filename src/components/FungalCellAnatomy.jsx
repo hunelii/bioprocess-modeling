@@ -44,7 +44,15 @@ export function createHunerFungalShell(isFront, segW = 64, segH = 48) {
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const ripple = 1.0 + 0.012 * Math.sin(x * 19.0 + y * 13.0) * Math.sin(y * 17.0 + z * 9.0);
-    pos.setXYZ(i, x * ripple * 1.62, y * ripple * 1.08, z * ripple * 0.76);
+    // Subtle anatomical basidiospore hilar appendix / apiculus projection at the pole
+    let apicX = 0.0, apicY = 0.0;
+    if (x < -0.80) {
+      const d = (x - (-1.0)) * (x - (-1.0)) + y * y + z * z;
+      const f = Math.exp(-d * 14.0) * 0.055;
+      apicX = -f * 1.5;
+      apicY = -f * 0.45;
+    }
+    pos.setXYZ(i, (x * ripple + apicX) * 1.62, (y * ripple + apicY) * 1.08, z * ripple * 0.76);
   }
   geo.computeVertexNormals();
   return geo;

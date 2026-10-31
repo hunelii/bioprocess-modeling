@@ -202,18 +202,18 @@ export function upgradeFactoryMaterials(world) {
 
   // 3. Worktops: Monolithic Matte Basalt Stone / Dark Mineral Composite (museum-grade tactile stone)
   const sharedWorktopStoneMat = new THREE.MeshStandardMaterial({
-    color: '#1e2821', // Monolithic dark stone worktop
-    roughness: 0.65,
-    metalness: 0.06,
-    envMapIntensity: 0.60
+    color: '#222d25', // Monolithic dark basalt stone worktop with subtle tactile specularity
+    roughness: 0.46,
+    metalness: 0.10,
+    envMapIntensity: 0.88
   });
 
-  // 4. Bench Plinths & Pedestals: Sculpted Rammed Earth / Compressed Mycelium Plinth Blocks
+  // 4. Bench Plinths & Pedestals: Sculpted Monolithic Basalt & Matte Black Biocomposite Blocks
   const sharedBenchPlinthMat = new THREE.MeshStandardMaterial({
-    color: '#cdc3af', // Warm rammed mycelium substrate block
-    roughness: 0.84,
-    metalness: 0.02,
-    envMapIntensity: 0.45
+    color: '#263128', // Sculpted dark monolithic stone plinth (replaces flat white/yellow boxes)
+    roughness: 0.76,
+    metalness: 0.05,
+    envMapIntensity: 0.55
   });
 
   // 5. Floor & Foundation: Rich Living Biological Humus / Earth Terrazzo Substrate
