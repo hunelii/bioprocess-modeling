@@ -179,49 +179,93 @@ const stemMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide
 });
 
+let cachedArchRelief = null;
+export function getSharedArchitecturalRelief() {
+  if (cachedArchRelief) return cachedArchRelief;
+  const size = 512;
+  const data = new Uint8Array(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    const v = (y / size) * Math.PI * 2;
+    for (let x = 0; x < size; x++) {
+      const u = (x / size) * Math.PI * 2;
+      // Seamless tileable multi-octave organic mycelium fiber + basalt mineral micro-grain
+      const weave1 = Math.sin(u * 6.0 + Math.cos(v * 5.0) * 1.4) * Math.cos(v * 6.0 - Math.sin(u * 4.0) * 1.2);
+      const weave2 = Math.sin(u * 14.0 - v * 9.0 + Math.sin(u * 3.0 + v * 4.0) * 2.1);
+      const pores = Math.cos(u * 26.0 + Math.sin(v * 18.0) * 1.8) * Math.sin(v * 24.0 + Math.cos(u * 19.0) * 1.6);
+      const microGrain = Math.sin(u * 52.0 + v * 47.0) * Math.cos(u * 43.0 - v * 59.0);
+      const val = Math.max(0, Math.min(255, Math.round(
+        128 + weave1 * 48 + weave2 * 32 + pores * 26 + microGrain * 18
+      )));
+      const idx = (y * size + x) * 4;
+      data[idx] = val;
+      data[idx + 1] = val;
+      data[idx + 2] = val;
+      data[idx + 3] = 255;
+    }
+  }
+  const tex = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(6, 6);
+  tex.needsUpdate = true;
+  cachedArchRelief = tex;
+  return tex;
+}
+
 export function upgradeFactoryMaterials(world) {
   // THE LIVING BIOSPHERE / BİYO-MİMARİ TAPINAĞI (Neri Oxman & Zaha Hadid Visionary Architecture)
   // Replaces cold industrial steel with sculptural hyphal bone, pressed mycelium composite,
-  // monolithic basalt stone, and living biological materials.
+  // monolithic basalt stone, and living biological materials with high-res micro-relief.
+  const archRelief = getSharedArchitecturalRelief();
 
   // 1. Structural Columns, Trusses & Arches: Calcified Hyphal Bone / Sculptural Pressed Mycelium
   const sharedColumnMat = new THREE.MeshStandardMaterial({
     color: '#dfd7c8', // Warm pressed mycelium composite / plaster chalk
-    roughness: 0.88,
+    roughness: 0.86,
     metalness: 0.02,
-    envMapIntensity: 0.40
+    bumpMap: archRelief,
+    bumpScale: 0.016,
+    envMapIntensity: 0.42
   });
 
   // 2. Equipment Frameworks & Enclosures: Dark Matte Biopolymer / Deep Fossil Composite
   const sharedFrameMat = new THREE.MeshStandardMaterial({
     color: '#243329', // Organic deep biophilic composite (replaces grey industrial steel)
-    roughness: 0.74,
-    metalness: 0.06,
-    envMapIntensity: 0.45
+    roughness: 0.68,
+    metalness: 0.12,
+    bumpMap: archRelief,
+    bumpScale: 0.008,
+    envMapIntensity: 0.52
   });
 
   // 3. Worktops: Monolithic Matte Basalt Stone / Dark Mineral Composite (museum-grade tactile stone)
   const sharedWorktopStoneMat = new THREE.MeshStandardMaterial({
     color: '#222d25', // Monolithic dark basalt stone worktop with subtle tactile specularity
-    roughness: 0.46,
-    metalness: 0.10,
-    envMapIntensity: 0.88
+    roughness: 0.42,
+    metalness: 0.12,
+    bumpMap: archRelief,
+    bumpScale: 0.010,
+    envMapIntensity: 0.92
   });
 
   // 4. Bench Plinths & Pedestals: Sculpted Monolithic Basalt & Matte Black Biocomposite Blocks
   const sharedBenchPlinthMat = new THREE.MeshStandardMaterial({
     color: '#263128', // Sculpted dark monolithic stone plinth (replaces flat white/yellow boxes)
-    roughness: 0.76,
-    metalness: 0.05,
-    envMapIntensity: 0.55
+    roughness: 0.72,
+    metalness: 0.06,
+    bumpMap: archRelief,
+    bumpScale: 0.014,
+    envMapIntensity: 0.58
   });
 
   // 5. Floor & Foundation: Rich Living Biological Humus / Earth Terrazzo Substrate
   const sharedFloorMat = new THREE.MeshStandardMaterial({
     color: '#131c15', // Deep living mossy humus floor
-    roughness: 0.86,
-    metalness: 0.03,
-    envMapIntensity: 0.35
+    roughness: 0.84,
+    metalness: 0.04,
+    bumpMap: archRelief,
+    bumpScale: 0.018,
+    envMapIntensity: 0.38
   });
 
   // 6. Narrative Life Path: Luminescent Bioluminescent Guide Ribbon

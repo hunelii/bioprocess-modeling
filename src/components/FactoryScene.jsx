@@ -394,9 +394,8 @@ function SmoothScrollController({
       }
     }
 
-    if (changed) {
-      invalidate();
-    }
+    // Keep the living biofoundry continuously breathing, flowing, and stirring while visible on screen
+    invalidate();
   });
 
   return null;

@@ -581,25 +581,24 @@ function ZoneGFermentationHero({ progressRef }) {
     };
   }, []);
 
-  const lastP = useRef(-1);
-  useFrame(() => {
+  useFrame((state) => {
     const p = progressRef.current;
     const active = p >= 0.66;
     if (groupRef.current) groupRef.current.visible = active;
     if (!active) return;
-    if (Math.abs(p - lastP.current) < 0.00002) return;
-    lastP.current = p;
 
-    brothMat.uniforms.uTime.value = p * 28.0;
+    const t = state.clock.getElapsedTime();
+    brothMat.uniforms.uTime.value = t * 1.6 + p * 28.0;
     if (agitatorRef.current) {
-      agitatorRef.current.rotation.z = p * 85.0;
+      agitatorRef.current.rotation.z = t * 4.5 + p * 85.0;
     }
     if (biomassVortexRef.current) {
-      biomassVortexRef.current.rotation.z = p * 52.0;
+      biomassVortexRef.current.rotation.z = t * 2.4 + p * 52.0;
+      biomassVortexRef.current.position.z = 2.50 + Math.sin(t * 1.8) * 0.025;
     }
     if (bubblesRef.current) {
-      bubblesRef.current.rotation.z = -p * 24.0;
-      bubblesRef.current.position.z = 2.50 + ((p * 18.0) % 0.14) - 0.07;
+      bubblesRef.current.rotation.z = -t * 1.5 - p * 24.0;
+      bubblesRef.current.position.z = 2.50 + (((t * 0.45 + p * 18.0) % 0.14) - 0.07);
     }
   });
 

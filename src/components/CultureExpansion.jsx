@@ -18,14 +18,27 @@ const pelletVertexShader = `
   attribute float aSize;
   attribute float aPhase;
   uniform float uGrowth;
+  uniform float uTime;
+  uniform vec2 uCenter;
   varying float vVisible;
   varying float vPhase;
   void main() {
-    vPhase = aPhase;
+    vPhase = aPhase + uTime * 1.4;
     // Progressive multiplication of suspended mycelial pellets as culture expands
     float localG = clamp((uGrowth - aOrder * 0.72) / 0.28, 0.0, 1.0);
     vVisible = localG;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+    // Continuous magnetic-stirrer orbital swirl around vessel axis
+    vec3 pos = position;
+    vec2 rel = pos.xy - uCenter;
+    float ang = uTime * (1.6 + (1.0 - aOrder) * 0.8);
+    float cs = cos(ang);
+    float sn = sin(ang);
+    pos.x = uCenter.x + rel.x * cs - rel.y * sn;
+    pos.y = uCenter.y + rel.x * sn + rel.y * cs;
+    pos.z += sin(uTime * 2.2 + aPhase) * 0.012;
+
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     float dist = max(0.4, -mvPosition.z);
     gl_PointSize = clamp((aSize * localG * 120.0) / dist, 0.0, 32.0);
     gl_Position = projectionMatrix * mvPosition;
@@ -69,12 +82,16 @@ function CultureThreads({ vessel, progressRef }) {
   const zMid = (vessel.zTop + vessel.zBottom) * 0.5;
 
   const pelletMat = useMemo(() => new THREE.ShaderMaterial({
-    uniforms: { uGrowth: { value: 0 } },
+    uniforms: {
+      uGrowth: { value: 0 },
+      uTime: { value: 0 },
+      uCenter: { value: new THREE.Vector2(cx, cy) }
+    },
     vertexShader: pelletVertexShader,
     fragmentShader: pelletFragmentShader,
     transparent: true,
     depthWrite: false
-  }), []);
+  }), [cx, cy]);
 
   // Build suspended stellate mycelial micro-pellet cloud + gossamer vortex filaments
   const batchedBiomass = useMemo(() => {
@@ -212,18 +229,21 @@ function CultureThreads({ vessel, progressRef }) {
     depthWrite: false
   }), []);
 
-  useFrame(() => {
+  useFrame((state) => {
     const p = progressRef.current;
+    const t = state.clock.getElapsedTime();
+    if (stirBarRef.current && (p >= 0.25 || p > 0.90)) {
+      stirBarRef.current.rotation.z = t * (12.0 + vessel.id * 2.5) + p * 80.0;
+    }
+
     const a = p > 0.92 ? 1.0 : ease(vessel.start - 0.02, vessel.end, p);
     const active = a > 0.01 && (p >= 0.28 || p > 0.90);
     if (group.current) group.current.visible = active;
     if (!active) return;
+
+    pelletMat.uniforms.uTime.value = t;
     if (Math.abs(p - lastP.current) < 0.00002) return;
     lastP.current = p;
-
-    if (stirBarRef.current) {
-      stirBarRef.current.rotation.z = p * (140.0 + vessel.id * 25.0);
-    }
 
     pelletMat.uniforms.uGrowth.value = a;
     for (let i = 0; i < batchedBiomass.tierCount; i++) {

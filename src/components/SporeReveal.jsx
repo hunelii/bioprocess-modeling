@@ -232,6 +232,11 @@ const bokehFragmentShader = `
 
 function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
   const hwRef = useRef();
+  const outerReticleRef = useRef();
+  const innerReticleRef = useRef();
+  const scannerRingRef = useRef();
+  const turretRef = useRef();
+
   const steelMat = useMemo(() => new THREE.MeshStandardMaterial({
     color: '#8f9c95', metalness: 0.74, roughness: 0.32, envMapIntensity: 0.75
   }), []);
@@ -239,10 +244,18 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
     color: '#18221d', metalness: 0.65, roughness: 0.42
   }), []);
   const brassMat = useMemo(() => new THREE.MeshStandardMaterial({
-    color: '#a89368', metalness: 0.72, roughness: 0.34
+    color: '#a89368', metalness: 0.76, roughness: 0.30
   }), []);
   const glassMat = useMemo(() => createFastGlassMaterial({
     color: '#d8ebe0', opacity: 0.32, envMapIntensity: 0.85
+  }), []);
+  const laserScannerMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#6effbe',
+    transparent: true,
+    opacity: 0.14,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
   }), []);
 
   const batched = useMemo(() => {
@@ -251,12 +264,9 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       transformGeo(new THREE.CylinderGeometry(0.72, 0.68, 0.09, 32), [1.25, 0, 2.21], [Math.PI / 2, 0, 0]),
       transformGeo(new THREE.CylinderGeometry(0.42, 0.46, 0.72, 24), [2.22, -0.46, 0.56], [Math.PI / 2, 0, 0]),
       transformGeo(new THREE.BoxGeometry(0.065, 0.09, 0.38), [2.15, -0.41, 1.16], [0, 0.18, -0.35]),
-      transformGeo(new THREE.CylinderGeometry(0.055, 0.048, 0.035, 16), [2.24, -0.46, 1.23], [Math.PI / 2, 0.2, 0]),
       transformGeo(new THREE.BoxGeometry(0.12, 0.11, 0.09), [2.22, -0.46, 1.33], [0, -0.45, -0.35]),
       transformGeo(new THREE.BoxGeometry(0.055, 0.075, 0.32), [3.22, -0.32, 1.42], [0, 0, 0.28]),
-      transformGeo(new THREE.CylinderGeometry(0.022, 0.018, 0.15, 12), [3.32, -0.32, 1.58], [0, 0.55, Math.PI / 2]),
-      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [2.235, -0.488, 1.185], [Math.PI / 2 - 0.25, 0, 0]),
-      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [2.265, -0.432, 1.185], [Math.PI / 2 + 0.25, 0, 0])
+      transformGeo(new THREE.CylinderGeometry(0.022, 0.018, 0.15, 12), [3.32, -0.32, 1.58], [0, 0.55, Math.PI / 2])
     ];
 
     const darkList = [
@@ -269,27 +279,44 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       transformGeo(new THREE.BoxGeometry(0.15, 0.16, 0.02), [3.30, -0.32, 1.38], [0, 0, 0.28])
     ];
 
-    // Observation Stage base hardware (unobstructed open viewing volume around the hero cell)
+    // Static brass crosshair & Zone B microscope objective
     const brassList = [
-      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [2.25, -0.46, 1.185], [Math.PI / 2, 0, 0]),
       transformGeo(new THREE.CylinderGeometry(0.016, 0.011, 0.06, 10), [3.30, -0.32, 1.46], [Math.PI / 2, 0, 0]),
-      // Precision Optical Micrometer Reticle Rings & Crosshair Scale on the Observation Stage Glass (z = 0.619)
-      transformGeo(new THREE.TorusGeometry(0.38, 0.0022, 6, 36), [1.25, 0, 0.619]),
-      transformGeo(new THREE.TorusGeometry(0.24, 0.0016, 6, 32), [1.25, 0, 0.619]),
-      transformGeo(new THREE.TorusGeometry(0.11, 0.0014, 6, 24), [1.25, 0, 0.619]),
+      transformGeo(new THREE.TorusGeometry(0.11, 0.0016, 6, 24), [1.25, 0, 0.619]),
       transformGeo(new THREE.BoxGeometry(0.76, 0.0018, 0.0012), [1.25, 0, 0.619]),
       transformGeo(new THREE.BoxGeometry(0.0018, 0.76, 0.0012), [1.25, 0, 0.619])
     ];
-    const tickBox = new THREE.BoxGeometry(0.026, 0.0022, 0.0014);
+
+    // Counter-Rotating Outer Calibration Ring Geometry (centered at [0,0,0])
+    const outerReticleParts = [new THREE.TorusGeometry(0.38, 0.0032, 8, 42)];
+    const tickBox = new THREE.BoxGeometry(0.032, 0.0030, 0.0020);
     for (let t = 0; t < 16; t++) {
       const ang = (t / 16) * Math.PI * 2;
-      const rTick = t % 2 === 0 ? 0.365 : 0.23;
-      brassList.push(transformGeo(
-        tickBox,
-        [1.25 + Math.cos(ang) * rTick, Math.sin(ang) * rTick, 0.619],
-        [0, 0, ang]
-      ));
+      outerReticleParts.push(transformGeo(tickBox, [Math.cos(ang) * 0.362, Math.sin(ang) * 0.362, 0], [0, 0, ang]));
     }
+
+    // Counter-Rotating Inner Calibration Ring Geometry (centered at [0,0,0])
+    const innerReticleParts = [new THREE.TorusGeometry(0.24, 0.0024, 8, 36)];
+    for (let t = 0; t < 12; t++) {
+      const ang = (t / 12) * Math.PI * 2;
+      innerReticleParts.push(transformGeo(tickBox, [Math.cos(ang) * 0.224, Math.sin(ang) * 0.224, 0], [0, 0, ang]));
+    }
+
+    // Rotating 3-Objective Microscope Nosepiece Turret (centered at [0,0,0])
+    const turretGeo = mergeGeometriesFast([
+      transformGeo(new THREE.CylinderGeometry(0.055, 0.048, 0.028, 18), [0, 0, 0.015], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [0.028, 0, -0.025], [Math.PI / 2, 0.22, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [-0.014, 0.024, -0.025], [Math.PI / 2 - 0.22, -0.12, 0]),
+      transformGeo(new THREE.CylinderGeometry(0.013, 0.009, 0.065, 10), [-0.014, -0.024, -0.025], [Math.PI / 2 + 0.22, -0.12, 0])
+    ]);
+
+    // Levitating Optical Laser-Sheet Scanner Ring & Sheet Disc (centered at [0,0,0])
+    const scannerHardwareParts = [new THREE.TorusGeometry(0.32, 0.0045, 8, 42)];
+    for (let k = 0; k < 3; k++) {
+      const a = (k / 3) * Math.PI * 2;
+      scannerHardwareParts.push(transformGeo(new THREE.BoxGeometry(0.028, 0.016, 0.014), [Math.cos(a) * 0.32, Math.sin(a) * 0.32, 0], [0, 0, a]));
+    }
+    const scannerSheetGeo = new THREE.RingGeometry(0.04, 0.318, 36);
 
     const glassGeo = transformGeo(new THREE.CylinderGeometry(0.44, 0.44, 0.012, 28), [1.25, 0, 0.612], [Math.PI / 2, 0, 0]);
 
@@ -297,22 +324,39 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       steelGeo: mergeGeometriesFast(steelList),
       darkGeo: mergeGeometriesFast(darkList),
       brassGeo: mergeGeometriesFast(brassList),
+      outerReticleGeo: mergeGeometriesFast(outerReticleParts),
+      innerReticleGeo: mergeGeometriesFast(innerReticleParts),
+      turretGeo,
+      scannerRingGeo: mergeGeometriesFast(scannerHardwareParts),
+      scannerSheetGeo,
       glassGeo
     };
   }, []);
 
-  useFrame(() => {
+  useFrame((state) => {
     const p = progressRef.current;
     const handoff = handoffRef ? clamp01(handoffRef.current ?? 1) : 1;
     if (hwRef.current) {
       const activeStage = p < 0.26 || p > 0.90;
       const visible = activeStage && handoff > 0.05;
       hwRef.current.visible = visible;
-      if (visible && handoff < 0.999) {
+      if (!visible) return;
+
+      if (handoff < 0.999) {
         const hScale = smooth(0.15, 0.95, handoff);
         hwRef.current.scale.set(hScale, hScale, hScale);
-      } else if (visible) {
+      } else {
         hwRef.current.scale.set(1, 1, 1);
+      }
+
+      const t = state.clock.getElapsedTime();
+      if (outerReticleRef.current) outerReticleRef.current.rotation.z = t * 0.32;
+      if (innerReticleRef.current) innerReticleRef.current.rotation.z = -t * 0.48;
+      if (turretRef.current) turretRef.current.rotation.z = Math.sin(t * 1.1) * 0.65;
+      if (scannerRingRef.current) {
+        // Smooth vertical laser tomography scan across the levitating fungal cell
+        scannerRingRef.current.position.z = 1.36 + Math.sin(t * 1.65) * 0.22;
+        scannerRingRef.current.rotation.z = t * 0.75;
       }
     }
   });
@@ -323,6 +367,19 @@ function ZoneAMicroscopyHardware({ progressRef, handoffRef }) {
       <mesh geometry={batched.darkGeo} material={darkMetalMat} />
       <mesh geometry={batched.brassGeo} material={brassMat} />
       <mesh geometry={batched.glassGeo} material={glassMat} />
+
+      {/* Counter-Rotating Precision Micrometer Calibration Reticles */}
+      <mesh ref={outerReticleRef} geometry={batched.outerReticleGeo} material={brassMat} position={[1.25, 0, 0.621]} />
+      <mesh ref={innerReticleRef} geometry={batched.innerReticleGeo} material={brassMat} position={[1.25, 0, 0.621]} />
+
+      {/* Active Focusing Microscope Objective Turret */}
+      <mesh ref={turretRef} geometry={batched.turretGeo} material={brassMat} position={[2.24, -0.46, 1.215]} />
+
+      {/* Vertical Laser Light-Sheet Optical Scanner Ring sweeping across the Hero Cell */}
+      <group ref={scannerRingRef} position={[1.20, -0.03, 1.36]}>
+        <mesh geometry={batched.scannerRingGeo} material={brassMat} />
+        <mesh geometry={batched.scannerSheetGeo} material={laserScannerMat} />
+      </group>
     </group>
   );
 }
