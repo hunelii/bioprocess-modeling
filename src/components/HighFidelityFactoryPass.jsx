@@ -166,31 +166,12 @@ function CathedralArchitectureAndBiophilia() {
       darkArchList.push(transformGeo(kneeTorus, [xCol, 1.50, 3.85], [Math.PI / 2, 0, 0]));
     }
 
-    const rockA = new THREE.DodecahedronGeometry(0.32, 1);
-    const mossGeo = new THREE.DodecahedronGeometry(0.24, 1);
-
-    const biophilicPockets = [
-      { x: 0.35, y: -2.15, z: 0.08, s: 1.15 },
-      { x: 5.85, y: -2.45, z: 0.05, s: 0.85 },
-      { x: 13.05, y: -2.10, z: 0.08, s: 1.05 },
-      { x: 17.85, y: -2.15, z: 0.10, s: 1.20 },
-      { x: 22.15, y: -2.20, z: 0.08, s: 1.05 },
-      { x: 27.55, y: -2.30, z: 0.08, s: 1.15 }
-    ];
-
-    biophilicPockets.forEach((p, idx) => {
-      rockList.push(transformGeo(rockA, [p.x, p.y, p.z + 0.06 * p.s], [0.2, idx * 0.8, 0.1], [1.35 * p.s, 0.95 * p.s, 0.58 * p.s]));
-      mossList.push(transformGeo(mossGeo, [p.x - 0.10 * p.s, p.y + 0.06 * p.s, p.z + 0.14 * p.s], [0, 0, 0], [1.3 * p.s, 0.95 * p.s, 0.45 * p.s]));
-    });
-
     const copperPipeGeo = transformGeo(new THREE.CylinderGeometry(0.032, 0.032, 33.0, 8), [16.0, 1.25, 3.64], [0, 0, Math.PI / 2]);
 
     return {
       copperPipeGeo,
       steelGeo: mergeGeometriesFast(steelList),
-      darkArchGeo: mergeGeometriesFast(darkArchList),
-      rockGeo: mergeGeometriesFast(rockList),
-      mossGeo: mergeGeometriesFast(mossList)
+      darkArchGeo: mergeGeometriesFast(darkArchList)
     };
   }, []);
 
@@ -199,8 +180,6 @@ function CathedralArchitectureAndBiophilia() {
       <mesh geometry={batched.steelGeo} material={brushedSteelMat} />
       <mesh geometry={batched.darkArchGeo} material={darkArchMat} />
       <mesh geometry={batched.copperPipeGeo} material={copperPipeMat} />
-      <mesh geometry={batched.rockGeo} material={rockMat} />
-      <mesh geometry={batched.mossGeo} material={mossMat} />
     </group>
   );
 }

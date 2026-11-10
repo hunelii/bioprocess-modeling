@@ -41,17 +41,31 @@ export function mergeGeometriesFast(geometries) {
   }
   const positions = new Float32Array(totalVerts * 3);
   const normals = new Float32Array(totalVerts * 3);
-  let offset = 0;
+  const uvs = new Float32Array(totalVerts * 2);
+  let offset3 = 0;
+  let offset2 = 0;
   for (const g of nonIndexed) {
+    const count = g.attributes.position.count;
     const p = g.attributes.position.array;
     const n = g.attributes.normal.array;
-    positions.set(p, offset);
-    normals.set(n, offset);
-    offset += p.length;
+    positions.set(p, offset3);
+    normals.set(n, offset3);
+    if (g.attributes.uv && g.attributes.uv.array.length >= count * 2) {
+      uvs.set(g.attributes.uv.array.subarray(0, count * 2), offset2);
+    } else {
+      // Synthesize clean spatial UVs from vertex positions when a custom geometry lacks explicit UVs
+      for (let i = 0; i < count; i++) {
+        uvs[offset2 + i * 2] = p[i * 3] + p[i * 3 + 1] * 0.5;
+        uvs[offset2 + i * 2 + 1] = p[i * 3 + 2] + p[i * 3 + 1] * 0.5;
+      }
+    }
+    offset3 += count * 3;
+    offset2 += count * 2;
   }
   const merged = new THREE.BufferGeometry();
   merged.setAttribute('position', new THREE.BufferAttribute(positions, 3));
   merged.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   merged.computeBoundingSphere();
   return merged;
 }

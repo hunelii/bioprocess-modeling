@@ -2,6 +2,12 @@ import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { transformGeo, mergeGeometriesFast } from '../data/gpuOptimize.js';
+import {
+  botanicalFoliageVertexShader,
+  botanicalFoliageFragmentShader,
+  populateBotanicalGardenCluster,
+  populateCreepingBotanicalVine
+} from './LivingBiosphereArchitecture.jsx';
 
 // All 24 fruiting positions and five anatomical parts already exist in the immutable GLB.
 // Botanical 3-point lighting rig (Warm Key + Shelf Under-Gill Fill + Cool Rim Backlight) for Zone F fruiting bodies.
@@ -63,13 +69,40 @@ export function FruitingAtmosphere({ progressRef }) {
     roughness: 0.25
   }), []);
 
-  const mistMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#dff7ec',
-    transparent: true,
-    opacity: 0.14,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+  const trayDarkBotanicalMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSwayAmp: { value: 0.0042 },
+      uDeepChlorophyll: { value: new THREE.Color('#13361b') },
+      uMidLeafColor: { value: new THREE.Color('#276131') },
+      uSubsurfaceGlow: { value: new THREE.Color('#6dd95b') },
+      uVeinColor: { value: new THREE.Color('#8ff578') }
+    },
+    vertexShader: botanicalFoliageVertexShader,
+    fragmentShader: botanicalFoliageFragmentShader,
     side: THREE.DoubleSide
+  }), []);
+
+  const trayBrightBotanicalMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSwayAmp: { value: 0.0062 },
+      uDeepChlorophyll: { value: new THREE.Color('#1d4b23') },
+      uMidLeafColor: { value: new THREE.Color('#3c8a3b') },
+      uSubsurfaceGlow: { value: new THREE.Color('#a4ff6e') },
+      uVeinColor: { value: new THREE.Color('#d2ff9e') }
+    },
+    vertexShader: botanicalFoliageVertexShader,
+    fragmentShader: botanicalFoliageFragmentShader,
+    side: THREE.DoubleSide
+  }), []);
+
+  const traySporophyteMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#c9a94b',
+    emissive: '#4d3a08',
+    emissiveIntensity: 0.28,
+    roughness: 0.45,
+    metalness: 0.12
   }), []);
 
   const batched = useMemo(() => {
@@ -79,9 +112,10 @@ export function FruitingAtmosphere({ progressRef }) {
       transformGeo(new THREE.CylinderGeometry(0.052, 0.052, 3.45, 12), [20.0, -1.25, 3.22], [0, 0, Math.PI / 2])
     ];
     const diffuserGeos = [];
-    const mistGeos = [];
+    const darkFoliageGeos = [];
+    const brightFoliageGeos = [];
+    const sporophyteGeos = [];
     const nozzleCyl = new THREE.CylinderGeometry(0.012, 0.018, 0.042, 8);
-    const subPatch = new THREE.DodecahedronGeometry(0.11, 0);
 
     // Overhead shelf grow-light housings, LED strip bars & living biological shelf environment
     for (let r = 0; r < 3; r++) {
@@ -95,47 +129,84 @@ export function FruitingAtmosphere({ progressRef }) {
         // Ultrasonic misting nozzle on the overhead bar
         steelGeos.push(transformGeo(nozzleCyl, [nx, -0.05, zBar - 0.035], [Math.PI / 2, 0, 0]));
 
-        // Dense, spreading living rhizomorphic mycelial cushions and stolons across the tray
-        for (const [pairOffX, pairOffY] of [[-0.145, -0.16], [0.145, 0.08]]) {
-          diffuserGeos.push(transformGeo(
-            subPatch,
-            [nx + pairOffX, pairOffY, zTray - 0.004],
-            [0, 0, c * 0.7 + r],
-            [2.4, 1.85, 0.28]
-          ));
+        // Symbiotic companion bryophyte & micro-fern cushions flanking each Pleurotus fruiting cluster
+        for (let pIdx = 0; pIdx < 2; pIdx++) {
+          const [pairOffX, pairOffY] = pIdx === 0 ? [-0.145, -0.16] : [0.145, 0.08];
+          populateBotanicalGardenCluster({
+            center: [nx + pairOffX, pairOffY, zTray - 0.002],
+            scale: 1.55,
+            seed: 910 + r * 31 + c * 11 + pIdx * 5,
+            darkFoliageList: darkFoliageGeos,
+            brightFoliageList: brightFoliageGeos,
+            sporophyteList: sporophyteGeos,
+            includeFerns: true,
+            includeBroadLeaves: true,
+            mossDensity: 12,
+            sporophyteCount: 4
+          });
         }
 
-        // Spreading inter-cluster mycelial hyphae connecting the cultures across the shelf surface
+        // Creeping leafy botanical stolon & inter-cluster micro-garden bridging adjacent fruiting cultures
         if (c < 3) {
           const nextX = X[c + 1];
           const midX = (nx + nextX) * 0.5;
-          diffuserGeos.push(transformGeo(
-            subPatch,
-            [midX, -0.04, zTray - 0.008],
-            [0, 0.2, c + r],
-            [1.9, 1.2, 0.14]
-          ));
+          populateBotanicalGardenCluster({
+            center: [midX, -0.04, zTray - 0.003],
+            scale: 1.25,
+            seed: 980 + r * 23 + c * 7,
+            darkFoliageList: darkFoliageGeos,
+            brightFoliageList: brightFoliageGeos,
+            sporophyteList: sporophyteGeos,
+            includeFerns: (c + r) % 2 === 0,
+            includeBroadLeaves: true,
+            mossDensity: 10,
+            sporophyteCount: 3
+          });
+          populateCreepingBotanicalVine({
+            points: [
+              [nx + 0.08, -0.10, zTray + 0.002],
+              [midX, -0.02 + (r % 2 === 0 ? 0.06 : -0.06), zTray + 0.005],
+              [nextX - 0.08, 0.05, zTray + 0.002]
+            ],
+            stemRadius: 0.0032,
+            leafCount: 10,
+            leafScale: 0.026,
+            closed: false,
+            darkFoliageList: darkFoliageGeos,
+            brightFoliageList: brightFoliageGeos,
+            sporophyteList: sporophyteGeos,
+            seed: 1020 + r * 17 + c
+          });
         }
       }
     }
     return {
       steelGeo: mergeGeometriesFast(steelGeos),
       diffuserGeo: mergeGeometriesFast(diffuserGeos),
-      mistGeo: mergeGeometriesFast(mistGeos)
+      darkFoliageGeo: mergeGeometriesFast(darkFoliageGeos),
+      brightFoliageGeo: mergeGeometriesFast(brightFoliageGeos),
+      sporophyteGeo: mergeGeometriesFast(sporophyteGeos)
     };
   }, []);
 
-  useFrame(() => {
+  useFrame((state) => {
     const p = progressRef.current;
     const active = p >= 0.64;
     if (groupRef.current) groupRef.current.visible = active;
+    if (active) {
+      const t = state.clock.elapsedTime;
+      trayDarkBotanicalMat.uniforms.uTime.value = t;
+      trayBrightBotanicalMat.uniforms.uTime.value = t;
+    }
   });
 
   return (
     <group ref={groupRef} name="ZONE_F_CHAMBER_ATMOSPHERE_AND_LIGHTING" visible={false}>
       <mesh geometry={batched.steelGeo} material={steelMat} />
       <mesh geometry={batched.diffuserGeo} material={growLightDiffuserMat} />
-      {/* Translucent mist cones removed per user request for crisp visibility */}
+      <mesh geometry={batched.darkFoliageGeo} material={trayDarkBotanicalMat} />
+      <mesh geometry={batched.brightFoliageGeo} material={trayBrightBotanicalMat} />
+      <mesh geometry={batched.sporophyteGeo} material={traySporophyteMat} />
     </group>
   );
 }
