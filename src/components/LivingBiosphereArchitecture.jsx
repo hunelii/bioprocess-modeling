@@ -1429,12 +1429,19 @@ export function BiologicalMicroLandscape() {
       });
     });
 
-    // Articulated Micro-Inoculation & Optical Scanning Arm Geometry
+    // Articulated Micro-Inoculation & Optical Scanning Arm Geometry (seamless single-piece goose-neck tube + base pedestal)
+    const gooseNeckCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0, 0.075),
+      new THREE.Vector3(-0.035, -0.028, 0.125),
+      new THREE.Vector3(-0.082, -0.065, 0.118),
+      new THREE.Vector3(-0.105, -0.085, 0.088),
+      new THREE.Vector3(-0.105, -0.085, 0.062)
+    ]);
     const armGeo = mergeGeometriesFast([
       transformGeo(new THREE.CylinderGeometry(0.016, 0.020, 0.08, 12), [0, 0, 0.04], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.SphereGeometry(0.018, 12, 10), [0, 0, 0.085]),
-      transformGeo(new THREE.CylinderGeometry(0.007, 0.009, 0.16, 10), [-0.055, -0.045, 0.11], [0.4, -0.6, 0.5]),
-      transformGeo(new THREE.CylinderGeometry(0.005, 0.002, 0.045, 10), [-0.105, -0.085, 0.085], [Math.PI / 2, 0, 0])
+      transformGeo(new THREE.SphereGeometry(0.018, 12, 10), [0, 0, 0.080]),
+      new THREE.TubeGeometry(gooseNeckCurve, 20, 0.0055, 8, false),
+      transformGeo(new THREE.CylinderGeometry(0.008, 0.006, 0.016, 10), [-0.105, -0.085, 0.072], [Math.PI / 2, 0, 0])
     ]);
     const dropletTipGeo = transformGeo(new THREE.SphereGeometry(0.0055, 10, 8), [-0.105, -0.085, 0.060]);
 

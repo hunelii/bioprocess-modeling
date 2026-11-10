@@ -15,16 +15,16 @@ function Hyphae({cx,cy,extent}){
  return <g opacity={extent}>{rays.map((d,i)=><path key={i} d={d} fill="none" stroke="#e3f1dc" strokeWidth="1.2" strokeLinecap="round" pathLength="1" strokeDasharray={`${Math.max(0,extent)} 1`} />)}</g>;
 }
 export default function IsolationOverlay({progress}){
- if(progress<.240||progress>.356)return null;
+ if(progress<.256||progress>.356)return null;
  const selected=smooth(.301,.320,progress);
- const isHeating1 = progress < .264;
- const isCooling = progress >= .264 && progress < .275;
- const isTransfer = progress >= .275 && progress < .304;
- const isStreaking = progress >= .304 && progress <= .324;
+ const isHeating1 = progress < .278;
+ const isCooling = progress >= .278 && progress < .289;
+ const isTransfer = progress >= .289 && progress < .307;
+ const isStreaking = progress >= .307 && progress <= .324;
  const isHeating2 = progress > .324;
 
  const stage = isHeating1
-  ? '1/5 · FLAME STERILIZE LOOP (INCANDESCENT ORANGE)'
+  ? '1/5 · FLAME STERILIZE LOOP TIP (INCANDESCENT ORANGE)'
   : isCooling
   ? '2/5 · COOL LOOP IN STERILE ZONE & AGAR MARGIN'
   : isTransfer
@@ -44,7 +44,7 @@ export default function IsolationOverlay({progress}){
     {/* Bunsen Burner Schematic Icon in Center (x=220) */}
     <rect x="215" y="106" width="10" height="26" rx="2" fill="#8fa399" />
     <rect x="206" y="130" width="28" height="5" rx="2" fill="#6b7f75" />
-    <path d="M220 64 C211 80, 212 96, 220 105 C228 96, 229 80, 220 64 Z" fill={(isHeating1 || isHeating2) ? '#ff7b24' : '#42b8ff'} fillOpacity="0.85" />
+    <path d="M220 64 C211 80, 212 96, 220 105 C228 96, 229 80, 220 64 Z" fill="#42b8ff" fillOpacity="0.85" />
     <path d="M220 78 C216 88, 216 98, 220 105 C224 98, 224 88, 220 78 Z" fill="#7cfaff" />
     {/* Inoculation Loop Indicator Ring */}
     <circle
@@ -58,7 +58,7 @@ export default function IsolationOverlay({progress}){
     <path d="M168 76H202" stroke="#75c896" strokeWidth="1.6" strokeDasharray="3 3"/>
     <path d="M238 76H272" stroke="#75c896" strokeWidth="2"/><path d="M274 76l-8 -4.5v9Z" fill="#75c896"/>
     <text x="48" y="155" fill="#dce9d9" fontSize="10.5">PARENT CULTURE</text>
-    <text x="192" y="155" fill={(isHeating1 || isHeating2) ? '#ffb078' : '#9ad8ff'} fontSize="10">BUNSEN FLAME</text>
+    <text x="192" y="155" fill="#9ad8ff" fontSize="10">BUNSEN FLAME</text>
     <text x="304" y="155" fill="#dce9d9" fontSize="10.5">NEW ISOLATE</text>
   </svg>
   <div className="isolation-foot">{stage} <span>Aseptic microbiology protocol</span></div>

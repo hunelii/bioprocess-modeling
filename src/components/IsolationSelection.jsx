@@ -6,20 +6,22 @@ import { myceliumVertexShader, myceliumFragmentShader, buildTapered3DRhizomorphs
 
 // Locked glTF stations: C_Petri_0 (6.89,-.20,1.285) and C_Petri_1 (8.06,-.20,1.285).
 // Features a scientifically accurate 5-Stage Aseptic Microbiological Inoculation Loop & Bunsen Burner Protocol:
-// 1. Pre-Inoculation Flame Sterilization (Loop heated in Bunsen oxidizing/reducing tip until glowing incandescent orange)
-// 2. Aseptic Cooling (Cooled in sterile updraft & touched to unseeded sterile agar margin of Source Plate until metallic)
+// 1. Pre-Inoculation Flame Sterilization (Loop tip heated in blue Bunsen flame until ONLY the loop tip glows orange)
+// 2. Aseptic Cooling (Cooled in sterile air & touched to unseeded sterile agar margin of Source Plate until metallic)
 // 3. Inoculum Harvest & Aseptic Transfer (Pick up culture from leading edge of C_Petri_0 & carry across sterile zone)
 // 4. Sinusoidal Streak Plate Inoculation (Streak inoculum across C_Petri_1 agar surface)
-// 5. Post-Inoculation Terminal Flame Sterilization (Return loop to Bunsen flame until glowing incandescent orange again)
+// 5. Post-Inoculation Terminal Flame Sterilization (Return loop tip to blue Bunsen flame until loop tip glows orange again)
 export const SOURCE_PLATE = [6.89,-.20,1.285];
 export const ISOLATE_PLATE = [8.06,-.20,1.285];
-export const BUNSEN_BURNER_POS = [7.82, -0.145, 1.236];
-export const BUNSEN_FLAME_TIP = [7.82, -0.145, 1.356];
+export const BUNSEN_BURNER_POS = [7.80, -0.145, 1.236];
+export const BUNSEN_NOZZLE_TOP = [7.80, -0.145, 1.350];
+export const BUNSEN_FLAME_TIP = [7.7945, -0.1495, 1.366];
 
 const eased = (a,b,p) => {const t=Math.max(0,Math.min(1,(p-a)/(b-a)));return t*t*(3-2*t);};
 const lerp = (a,b,t)=>a+(b-a)*t;
 
-// Spatially-graded Blackbody Thermal Incandescence Shader for the Platinum/Nichrome Inoculation Loop Wire
+// Tip-Only Blackbody Thermal Incandescence Shader for the Platinum/Nichrome Inoculation Loop Wire
+// Strictly restricts the orange incandescence to the circular loop tip (vLocalY = 0.0 .. 0.022m)
 const wireLoopVertexShader = `
   varying float vLocalY;
   varying vec3 vNormal;
@@ -51,25 +53,25 @@ const wireLoopFragmentShader = `
     float spec = pow(max(dot(N, H), 0.0), 36.0);
     vec3 coolMetal = vec3(0.72, 0.78, 0.75) * diff + vec3(0.95, 0.98, 1.0) * spec * 0.55;
 
-    // Heat is concentrated at the circular loop ring (vLocalY = 0..0.022) and conducts partway up the wire shaft
-    float ringZone = 1.0 - smoothstep(0.018, 0.068, vLocalY);
-    float tipBoost = 1.0 - smoothstep(0.0, 0.020, vLocalY);
-    float shimmer = 0.96 + 0.04 * sin(uTime * 28.0 + vLocalY * 180.0);
-    float localTemp = clamp(uHeat * (ringZone * 0.95 + tipBoost * 0.25) * shimmer, 0.0, 1.0);
+    // Strictly localize thermal incandescence to the circular loop tip (vLocalY = 0.0 .. 0.020m)
+    // and top 5mm weld neck (0.020 .. 0.026m), keeping the rest of the wire shaft cool metallic!
+    float tipRingMask = 1.0 - smoothstep(0.016, 0.026, vLocalY);
+    float apexBoost = 1.0 - smoothstep(0.0, 0.014, vLocalY);
+    float localTemp = clamp(uHeat * (tipRingMask * 0.92 + apexBoost * 0.18), 0.0, 1.0);
 
-    // Planck Blackbody Incandescence Progression:
-    // 0.00 -> 0.30: Cool metallic -> Dark cherry red (#7a0d00)
-    // 0.30 -> 0.68: Dark cherry red -> Luminous orange-red (#ff4500)
-    // 0.68 -> 1.00: Luminous orange-red -> Incandescent yellow-orange (#ffba38)
-    vec3 darkRed = vec3(0.55, 0.05, 0.0);
-    vec3 brightOrange = vec3(1.0, 0.30, 0.02);
-    vec3 yellowOrange = vec3(1.0, 0.78, 0.22);
+    // Planck Blackbody Incandescence on the wire tip:
+    // 0.00 -> 0.30: Cool metallic -> Dark cherry red (#801000)
+    // 0.30 -> 0.70: Dark cherry red -> Luminous orange-red (#ff4c00)
+    // 0.70 -> 1.00: Luminous orange-red -> Incandescent yellow-orange (#ffae28)
+    vec3 darkRed = vec3(0.55, 0.06, 0.0);
+    vec3 brightOrange = vec3(1.0, 0.32, 0.02);
+    vec3 yellowOrange = vec3(1.0, 0.74, 0.18);
 
-    vec3 glowCol = mix(darkRed, brightOrange, smoothstep(0.18, 0.65, localTemp));
+    vec3 glowCol = mix(darkRed, brightOrange, smoothstep(0.15, 0.65, localTemp));
     glowCol = mix(glowCol, yellowOrange, smoothstep(0.65, 1.0, localTemp));
 
-    float glowStrength = smoothstep(0.04, 0.95, localTemp);
-    vec3 finalCol = mix(coolMetal, glowCol * (1.35 + 0.65 * localTemp), glowStrength);
+    float glowStrength = smoothstep(0.04, 0.92, localTemp);
+    vec3 finalCol = mix(coolMetal, glowCol * (1.25 + 0.45 * localTemp), glowStrength);
 
     gl_FragColor = vec4(finalCol, 1.0);
   }
@@ -83,11 +85,9 @@ export function IsolationSelection({ progressRef }) {
   const transfer = useRef();
   const loopToolRef = useRef();
   const loopSampleRef = useRef();
-  const loopHaloRef = useRef();
-  const loopGlowLightRef = useRef();
+  const loopTipHaloRef = useRef();
   const streakTrackRef = useRef();
   const flameRef = useRef();
-  const flameReactionRef = useRef();
   const coolSteamRef = useRef();
 
   const sourceColonyMat = useMemo(() => new THREE.ShaderMaterial({
@@ -125,7 +125,7 @@ export function IsolationSelection({ progressRef }) {
     color: '#a8b6af', metalness: 0.85, roughness: 0.20, envMapIntensity: 0.90
   }), []);
 
-  // Spatially-graded thermal incandescence shader material for the inoculation loop wire
+  // Tip-only thermal incandescence shader material for the inoculation loop wire
   const wireLoopMat = useMemo(() => new THREE.ShaderMaterial({
     uniforms: {
       uHeat: { value: 0.0 },
@@ -135,9 +135,9 @@ export function IsolationSelection({ progressRef }) {
     fragmentShader: wireLoopFragmentShader
   }), []);
 
-  // Additive thermal orange aura around the circular loop tip when incandescent
-  const loopHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#ff6a14',
+  // Tight, subtle orange incandescence aura strictly on the circular wire loop tip (no stray light on table)
+  const loopTipHaloMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: '#ff6814',
     transparent: true,
     opacity: 0.0,
     blending: THREE.AdditiveBlending,
@@ -145,26 +145,17 @@ export function IsolationSelection({ progressRef }) {
   }), []);
 
   const bunsenOuterFlameMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#3898ff',
+    color: '#3492ff',
     transparent: true,
-    opacity: 0.56,
+    opacity: 0.58,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   }), []);
 
   const bunsenInnerConeMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#5cfaff',
+    color: '#5efaff',
     transparent: true,
-    opacity: 0.82,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  }), []);
-
-  // Secondary orange-gold sodium/metal ionization flare when the wire loop is heated inside the Bunsen flame
-  const flameReactionMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: '#ff7b1a',
-    transparent: true,
-    opacity: 0.0,
+    opacity: 0.84,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   }), []);
@@ -224,11 +215,8 @@ export function IsolationSelection({ progressRef }) {
       transformGeo(new THREE.CylinderGeometry(0.0014, 0.0012, 0.0898, 12), [0, 0.0611, 0])
     ]);
 
-    // Glowing thermal halo mesh hugging the circular loop ring and lower stem
-    const loopHaloGeo = mergeGeometriesFast([
-      transformGeo(new THREE.TorusGeometry(0.0085, 0.0032, 12, 32), [0, 0.0085, 0], [0.25, 0, 0]),
-      transformGeo(new THREE.CylinderGeometry(0.0028, 0.0022, 0.032, 10), [0, 0.032, 0])
-    ]);
+    // Tight tip-only thermal halo hugging ONLY the circular wire loop ring at (0, 0.0085, 0)
+    const loopTipHaloGeo = transformGeo(new THREE.TorusGeometry(0.0085, 0.0024, 12, 32), [0, 0.0085, 0], [0.25, 0, 0]);
 
     const brassChuckGeo = mergeGeometriesFast([
       // 4. Tapered brass collet chuck clamping the wire (y=0.1040 to y=0.1220)
@@ -246,7 +234,7 @@ export function IsolationSelection({ progressRef }) {
       transformGeo(new THREE.CylinderGeometry(0.014, 0.026, 0.014, 18), [bx, by, bz + 0.018], [Math.PI / 2, 0, 0]),
       // Vertical Venturi mixing barrel (chimney tube)
       transformGeo(new THREE.CylinderGeometry(0.0082, 0.0082, 0.082, 16), [bx, by, bz + 0.066], [Math.PI / 2, 0, 0]),
-      // Castellated flame-stabilizer crown nozzle at top of barrel (z = 1.348)
+      // Castellated flame-stabilizer crown nozzle at top of barrel (top at z = bz + 0.114 = 1.350)
       transformGeo(new THREE.CylinderGeometry(0.0094, 0.0084, 0.012, 16), [bx, by, bz + 0.108], [Math.PI / 2, 0, 0]),
       // Benchtop gas supply turret cock at [bx - 0.14, by + 0.10, bz]
       transformGeo(new THREE.CylinderGeometry(0.018, 0.022, 0.028, 14), [bx - 0.14, by + 0.10, bz + 0.014], [Math.PI / 2, 0, 0])
@@ -270,20 +258,15 @@ export function IsolationSelection({ progressRef }) {
     ]);
     darkHoseList.push(new THREE.TubeGeometry(gasHoseCurve, 20, 0.0042, 8, false));
 
-    // Outer oxidizing blue-violet flame mantle + Inner intense cyan reducing cone
+    // IMPORTANT: Build Bunsen flame geometries in LOCAL coordinates relative to BUNSEN_NOZZLE_TOP (0, 0, 0)
+    // so that scaling `flameRef` for flicker keeps the flame 100% locked onto the top of the burner nozzle!
     const outerFlameGeo = mergeGeometriesFast([
-      transformGeo(new THREE.ConeGeometry(0.0115, 0.054, 16), [bx, by, bz + 0.139], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.SphereGeometry(0.0095, 12, 10), [bx, by, bz + 0.118], [1, 1, 1.35])
+      transformGeo(new THREE.ConeGeometry(0.0108, 0.052, 16), [0, 0, 0.026], [Math.PI / 2, 0, 0]),
+      transformGeo(new THREE.SphereGeometry(0.0088, 12, 10), [0, 0, 0.006], [0, 0, 0], [1, 1, 1.35])
     ]);
-    const innerConeGeo = transformGeo(new THREE.ConeGeometry(0.0062, 0.028, 14), [bx, by, bz + 0.126], [Math.PI / 2, 0, 0]);
+    const innerConeGeo = transformGeo(new THREE.ConeGeometry(0.0058, 0.026, 14), [0, 0, 0.013], [Math.PI / 2, 0, 0]);
 
-    // Secondary incandescent orange sodium/metal reaction plume enveloping the loop inside the flame
-    const flameReactionGeo = mergeGeometriesFast([
-      transformGeo(new THREE.ConeGeometry(0.0135, 0.046, 16), [bx, by, bz + 0.144], [Math.PI / 2, 0, 0]),
-      transformGeo(new THREE.SphereGeometry(0.0125, 14, 12), [bx, by, bz + 0.124])
-    ]);
-
-    //Zigzag Inoculation Streak Track (Ekme İzi) on the Isolate Plate C_Petri_1 agar surface [8.06, -0.20, 1.2891]
+    // Zigzag Inoculation Streak Track (Ekme İzi) on the Isolate Plate C_Petri_1 agar surface [8.06, -0.20, 1.2891]
     const streakPts = [];
     for (let i = 0; i <= 24; i++) {
       const u = i / 24;
@@ -316,13 +299,12 @@ export function IsolationSelection({ progressRef }) {
       darkHoseGeo: mergeGeometriesFast(darkHoseList),
       coreGeo: mergeGeometriesFast(coreList),
       wireLoopGeo,
-      loopHaloGeo,
+      loopTipHaloGeo,
       brassChuckGeo,
       handleShaftGeo,
       rubberGripGeo,
       outerFlameGeo,
       innerConeGeo,
-      flameReactionGeo,
       streakGeo
     };
   }, []);
@@ -337,7 +319,6 @@ export function IsolationSelection({ progressRef }) {
       if (transfer.current) transfer.current.visible = false;
       if (loopToolRef.current) loopToolRef.current.visible = false;
       if (flameRef.current) flameRef.current.visible = false;
-      if (flameReactionRef.current) flameReactionRef.current.visible = false;
       if (coolSteamRef.current) coolSteamRef.current.visible = false;
       return;
     }
@@ -377,81 +358,79 @@ export function IsolationSelection({ progressRef }) {
     }
 
     // =========================================================================
-    // SCIENTIFIC 5-STAGE ASEPTIC INOCULATION LOOP CHOREOGRAPHY (p = 0.240 -> 0.358)
+    // SCIENTIFIC 5-STAGE ASEPTIC INOCULATION LOOP CHOREOGRAPHY (p = 0.258 -> 0.356)
     // =========================================================================
-    const [fx, fy, fz] = BUNSEN_FLAME_TIP; // [7.82, -0.145, 1.356]
+    const [fx, fy, fz] = BUNSEN_FLAME_TIP; // [7.80, -0.145, 1.368]
     const sterileAgarEdge = [6.860, -0.214, 1.2892]; // Uncolonized sterile agar periphery on C_Petri_0
     const colonyLeadingEdge = [6.906, -0.200, 1.2892]; // Active mycelial margin on C_Petri_0
 
     let uHeat = 0.0;
-    let inFlameContact = 0.0;
     let agarCoolTouch = 0.0;
 
     if (loopToolRef.current) {
-      const showLoop = p >= 0.238 && p <= 0.358;
+      const showLoop = p >= 0.256 && p <= 0.356;
       loopToolRef.current.visible = showLoop;
       if (showLoop) {
         let lx = fx, ly = fy, lz = fz, rotX = 0, rotY = 0, rotZ = 0;
 
-        if (p < 0.264) {
-          // STAGE 1: PRE-INOCULATION FLAME STERILIZATION (p = 0.238 -> 0.264)
-          // Hold inoculation loop directly inside the upper reducing/oxidizing tip of the Bunsen flame
-          // until the platinum/nichrome wire glows bright orange-red incandescent!
-          const enterFlame = eased(0.238, 0.246, p);
-          const sweepInFlame = Math.sin(eased(0.244, 0.263, p) * Math.PI * 2.0);
-          lx = lerp(fx + 0.045, fx, enterFlame) + 0.003 * sweepInFlame;
-          ly = lerp(fy - 0.025, fy, enterFlame) + 0.002 * sweepInFlame;
-          lz = lerp(fz + 0.035, fz, enterFlame) + 0.004 * Math.cos(p * 420.0);
-          rotY = -0.18 + 0.06 * sweepInFlame;
-          rotZ = 0.12;
+        if (p < 0.278) {
+          // STAGE 1: PRE-INOCULATION FLAME STERILIZATION (p = 0.256 -> 0.278)
+          // Hold inoculation loop tip directly inside the blue Bunsen burner flame at [7.80, -0.145, 1.368]
+          // while the camera frames the Zone C bench (0.262..0.278). ONLY the loop tip glows orange!
+          const enterFlame = eased(0.256, 0.263, p);
+          const sweepInFlame = Math.sin(eased(0.263, 0.277, p) * Math.PI * 2.0);
+          lx = lerp(fx + 0.035, fx, enterFlame) + 0.0025 * sweepInFlame;
+          ly = lerp(fy - 0.020, fy, enterFlame) + 0.0015 * sweepInFlame;
+          lz = lerp(fz + 0.028, fz, enterFlame);
+          rotY = -0.16 + 0.05 * sweepInFlame;
+          rotZ = 0.10;
 
-          // Heat ramps up rapidly inside the flame to peak orange incandescence (uHeat = 1.0)
-          uHeat = eased(0.241, 0.254, p);
-          inFlameContact = enterFlame * (1.0 - eased(0.261, 0.264, p));
+          // Loop tip heats up rapidly inside the flame to bright orange incandescence (uHeat = 1.0)
+          uHeat = eased(0.259, 0.267, p);
 
-        } else if (p < 0.275) {
-          // STAGE 2: ASEPTIC COOLING IN STERILE UPDRAFT & AGAR MARGIN TOUCH (p = 0.264 -> 0.275)
-          // Move loop out of flame toward Source Plate (0.264 -> 0.270), then touch the sterile
-          // uncolonized agar edge of C_Petri_0 (0.270 -> 0.275) to dissipate residual heat safely
-          // before contacting live cells/hyphae!
-          const moveToMargin = eased(0.264, 0.270, p);
-          const touchMargin = Math.sin(eased(0.269, 0.275, p) * Math.PI);
+        } else if (p < 0.289) {
+          // STAGE 2: ASEPTIC COOLING IN STERILE UPDRAFT & AGAR MARGIN TOUCH (p = 0.278 -> 0.289)
+          // Move loop out of the Bunsen flame over to the sterile uncolonized agar edge of C_Petri_0
+          // (0.278 -> 0.284) as the orange tip cools down, then touch the sterile agar margin
+          // (0.284 -> 0.289) until completely cooled (uHeat = 0.0) before contacting live cells!
+          const moveToMargin = eased(0.278, 0.284, p);
+          const touchMargin = Math.sin(eased(0.283, 0.289, p) * Math.PI);
           lx = lerp(fx, sterileAgarEdge[0], moveToMargin);
           ly = lerp(fy, sterileAgarEdge[1], moveToMargin);
-          lz = lerp(fz, sterileAgarEdge[2] + 0.018, moveToMargin) + 0.042 * Math.sin(moveToMargin * Math.PI) - 0.018 * touchMargin;
-          rotY = lerp(-0.18, -0.08, moveToMargin);
-          rotZ = lerp(0.12, 0.0, moveToMargin);
+          lz = lerp(fz, sterileAgarEdge[2] + 0.016, moveToMargin) + 0.038 * Math.sin(moveToMargin * Math.PI) - 0.016 * touchMargin;
+          rotY = lerp(-0.16, -0.08, moveToMargin);
+          rotZ = lerp(0.10, 0.0, moveToMargin);
 
-          // Orange glow cools to cherry red in sterile air (1.0 -> 0.45), then quenches to 0.0 on agar touch!
-          const airCool = 1.0 - 0.55 * eased(0.264, 0.269, p);
-          const agarQuench = 1.0 - eased(0.269, 0.2735, p);
+          // Tip glow cools in sterile air (1.0 -> 0.42), then quenches to 0.0 on sterile agar touch!
+          const airCool = 1.0 - 0.58 * eased(0.278, 0.283, p);
+          const agarQuench = 1.0 - eased(0.283, 0.2875, p);
           uHeat = airCool * agarQuench;
           agarCoolTouch = touchMargin;
 
-        } else if (p < 0.281) {
-          // STAGE 3A: HARVEST INOCULUM FROM COLONY LEADING EDGE (p = 0.275 -> 0.281)
-          // Now cool & sterile (uHeat = 0), glide from sterile agar edge onto the active colony margin
-          const glideToColony = eased(0.275, 0.278, p);
-          const harvestDip = Math.sin(eased(0.276, 0.281, p) * Math.PI);
+        } else if (p < 0.294) {
+          // STAGE 3A: HARVEST INOCULUM FROM COLONY LEADING EDGE (p = 0.289 -> 0.294)
+          // Now 100% cooled & sterile (uHeat = 0), glide onto the active colony margin on C_Petri_0
+          const glideToColony = eased(0.289, 0.2915, p);
+          const harvestDip = Math.sin(eased(0.290, 0.294, p) * Math.PI);
           lx = lerp(sterileAgarEdge[0], colonyLeadingEdge[0], glideToColony);
           ly = lerp(sterileAgarEdge[1], colonyLeadingEdge[1], glideToColony);
-          lz = colonyLeadingEdge[2] + 0.008 * (1.0 - harvestDip);
+          lz = colonyLeadingEdge[2] + 0.007 * (1.0 - harvestDip);
           rotY = -0.10 * harvestDip;
           uHeat = 0.0;
 
-        } else if (p <= 0.304) {
-          // STAGE 3B: ASEPTIC TRANSFER ACROSS STERILE ZONE TO ISOLATE PLATE (p = 0.281 -> 0.304)
-          const transferArc = eased(0.281, 0.304, p);
+        } else if (p <= 0.307) {
+          // STAGE 3B: ASEPTIC TRANSFER ACROSS STERILE ZONE TO ISOLATE PLATE (p = 0.294 -> 0.307)
+          const transferArc = eased(0.294, 0.307, p);
           lx = lerp(colonyLeadingEdge[0], 8.038, transferArc);
           ly = -0.20 - 0.024 * Math.sin(Math.PI * transferArc);
-          lz = 1.290 + 0.078 * Math.sin(Math.PI * transferArc);
-          rotY = 0.14 * Math.sin(Math.PI * transferArc);
+          lz = 1.290 + 0.072 * Math.sin(Math.PI * transferArc);
+          rotY = 0.12 * Math.sin(Math.PI * transferArc);
           uHeat = 0.0;
 
         } else if (p <= 0.324) {
-          // STAGE 4: SINUSOIDAL STREAK INOCULATION ON ISOLATE PLATE C_Petri_1 (p = 0.304 -> 0.324)
-          // Trace the exact 5-lobe sinusoidal streak pattern across [8.038 -> 8.082, -0.20, 1.2895]
-          const uStreak = eased(0.304, 0.324, p);
+          // STAGE 4: SINUSOIDAL STREAK INOCULATION ON ISOLATE PLATE C_Petri_1 (p = 0.307 -> 0.324)
+          // Trace the 5-lobe sinusoidal streak pattern across [8.038 -> 8.082, -0.20, 1.2896]
+          const uStreak = eased(0.307, 0.324, p);
           lx = 8.038 + uStreak * 0.044;
           ly = -0.20 + Math.sin(uStreak * Math.PI * 5.0) * (0.024 * (1.0 - uStreak * 0.42));
           lz = 1.2896;
@@ -460,53 +439,48 @@ export function IsolationSelection({ progressRef }) {
           uHeat = 0.0;
 
         } else {
-          // STAGE 5: POST-INOCULATION TERMINAL FLAME STERILIZATION (p = 0.324 -> 0.358)
-          // Lift loop from Isolate Plate (0.324 -> 0.331), insert back into the Bunsen flame tip
-          // (0.331 -> 0.348) until glowing bright incandescent orange again to incinerate remaining cells,
-          // then withdraw slightly (0.348 -> 0.358) to cool!
+          // STAGE 5: POST-INOCULATION TERMINAL FLAME STERILIZATION (p = 0.324 -> 0.356)
+          // Lift loop from Isolate Plate (0.324 -> 0.331), insert tip back into the blue Bunsen flame
+          // (0.331 -> 0.348) until ONLY the loop tip glows bright incandescent orange again,
+          // then withdraw slightly (0.348 -> 0.356) to cool!
           const returnToFlame = eased(0.324, 0.331, p);
-          const withdrawAfter = eased(0.348, 0.357, p);
+          const withdrawAfter = eased(0.348, 0.356, p);
           const holdRotate = Math.sin(eased(0.331, 0.348, p) * Math.PI * 2.0);
 
-          const targetX = lerp(fx, fx + 0.042, withdrawAfter);
-          const targetY = lerp(fy, fy - 0.022, withdrawAfter);
-          const targetZ = lerp(fz, fz + 0.036, withdrawAfter);
+          const targetX = lerp(fx, fx + 0.038, withdrawAfter);
+          const targetY = lerp(fy, fy - 0.020, withdrawAfter);
+          const targetZ = lerp(fz, fz + 0.032, withdrawAfter);
 
-          lx = lerp(8.082, targetX, returnToFlame) + 0.003 * holdRotate * (1.0 - withdrawAfter);
-          ly = lerp(-0.20, targetY, returnToFlame) + 0.002 * holdRotate * (1.0 - withdrawAfter);
-          lz = lerp(1.290, targetZ, returnToFlame) + 0.032 * Math.sin(returnToFlame * Math.PI);
-          rotY = lerp(0.06, -0.18, returnToFlame);
-          rotZ = lerp(0.0, 0.12, returnToFlame) + 0.08 * holdRotate;
+          lx = lerp(8.082, targetX, returnToFlame) + 0.0025 * holdRotate * (1.0 - withdrawAfter);
+          ly = lerp(-0.20, targetY, returnToFlame) + 0.0015 * holdRotate * (1.0 - withdrawAfter);
+          lz = lerp(1.290, targetZ, returnToFlame) + 0.028 * Math.sin(returnToFlame * Math.PI);
+          rotY = lerp(0.06, -0.16, returnToFlame);
+          rotZ = lerp(0.0, 0.10, returnToFlame) + 0.06 * holdRotate;
 
-          // Re-heat rapidly to full orange incandescence (uHeat = 1.0) inside the Bunsen flame,
-          // then begin cooling as it withdraws after p = 0.348
-          const reHeatUp = eased(0.330, 0.338, p);
-          const postCool = 1.0 - 0.65 * eased(0.349, 0.358, p);
+          // Re-heat loop tip rapidly to full orange incandescence (uHeat = 1.0) inside the Bunsen flame
+          const reHeatUp = eased(0.330, 0.336, p);
+          const postCool = 1.0 - 0.70 * eased(0.349, 0.356, p);
           uHeat = reHeatUp * postCool;
-          inFlameContact = eased(0.329, 0.332, p) * (1.0 - eased(0.347, 0.350, p));
         }
 
         loopToolRef.current.position.set(lx, ly, lz);
         loopToolRef.current.rotation.set(rotX, rotY, rotZ);
 
-        // Update wire thermal shader & orange halo aura
+        // Update wire tip thermal shader & tight tip-only ring halo
         wireLoopMat.uniforms.uHeat.value = uHeat;
-        if (loopHaloRef.current) {
-          loopHaloRef.current.visible = uHeat > 0.04;
-          loopHaloMat.opacity = 0.62 * Math.pow(uHeat, 1.3);
-        }
-        if (loopGlowLightRef.current) {
-          loopGlowLightRef.current.intensity = 0.85 * Math.pow(uHeat, 1.2);
+        if (loopTipHaloRef.current) {
+          loopTipHaloRef.current.visible = uHeat > 0.05;
+          loopTipHaloMat.opacity = 0.52 * Math.pow(uHeat, 1.3);
         }
 
         // Show harvested white biological film inside the circular loop ring during pickup & transfer,
-        // and gradually deposit/shrink it onto the agar as streaking progresses (0.304 -> 0.323)
+        // and gradually deposit/shrink it onto the agar as streaking progresses (0.307 -> 0.323)
         if (loopSampleRef.current) {
-          const hasSample = p >= 0.277 && p <= 0.323;
+          const hasSample = p >= 0.291 && p <= 0.323;
           loopSampleRef.current.visible = hasSample;
           if (hasSample) {
-            const pickupScale = eased(0.277, 0.281, p);
-            const depositDeplete = 1.0 - 0.85 * eased(0.304, 0.323, p);
+            const pickupScale = eased(0.291, 0.294, p);
+            const depositDeplete = 1.0 - 0.85 * eased(0.307, 0.323, p);
             const s = Math.max(0.1, pickupScale * depositDeplete);
             loopSampleRef.current.scale.set(s, 1.0, s);
           }
@@ -518,36 +492,28 @@ export function IsolationSelection({ progressRef }) {
     if (coolSteamRef.current) {
       coolSteamRef.current.visible = agarCoolTouch > 0.02;
       if (agarCoolTouch > 0.02) {
-        const expand = 1.0 + 1.4 * eased(0.269, 0.275, p);
+        const expand = 1.0 + 1.4 * eased(0.283, 0.289, p);
         coolSteamRef.current.scale.set(expand, expand, 1.0);
-        coolSteamMat.opacity = 0.48 * agarCoolTouch;
+        coolSteamMat.opacity = 0.45 * agarCoolTouch;
       }
     }
 
     if (streakTrackRef.current) {
-      const streakVis = inZoneC && p >= 0.304;
+      const streakVis = inZoneC && p >= 0.307;
       streakTrackRef.current.visible = streakVis;
       if (streakVis) {
-        streakTrackMat.opacity = 0.58 * eased(0.304, 0.323, p);
+        streakTrackMat.opacity = 0.58 * eased(0.307, 0.323, p);
       }
     }
 
+    // Bunsen burner flame group is anchored directly at BUNSEN_NOZZLE_TOP ([7.80, -0.145, 1.350]),
+    // so scaling it for natural flame flicker NEVER displaces its world position!
     if (flameRef.current) {
       flameRef.current.visible = inZoneC;
       if (inZoneC) {
         const flickerZ = 0.94 + 0.06 * Math.sin(t * 24.0) + 0.03 * Math.cos(t * 37.0);
-        const flickerXY = 0.97 + 0.03 * Math.cos(t * 19.0);
+        const flickerXY = 0.96 + 0.04 * Math.cos(t * 19.0);
         flameRef.current.scale.set(flickerXY, flickerXY, flickerZ);
-        flameRef.current.position.z = (1.0 - flickerZ) * -BUNSEN_BURNER_POS[2];
-      }
-    }
-
-    // Orange sodium/metal ionization flare when the inoculation loop is inside the Bunsen flame
-    if (flameReactionRef.current) {
-      flameReactionRef.current.visible = inZoneC && inFlameContact > 0.02;
-      if (inFlameContact > 0.02) {
-        const flareFlicker = 0.90 + 0.14 * Math.sin(t * 32.0);
-        flameReactionMat.opacity = 0.68 * inFlameContact * flareFlicker;
       }
     }
   });
@@ -560,14 +526,11 @@ export function IsolationSelection({ progressRef }) {
       <mesh geometry={batchedHardware.darkHoseGeo} material={gripMat} />
       <mesh geometry={batchedHardware.coreGeo} material={hyphaMat} />
 
-      {/* Multi-Zone Laboratory Bunsen Burner Flame (Inner Cyan Reducing Cone + Outer Blue Oxidizing Mantle) */}
-      <group ref={flameRef} visible={false}>
+      {/* Multi-Zone Laboratory Bunsen Burner Flame anchored directly at BUNSEN_NOZZLE_TOP */}
+      <group ref={flameRef} position={BUNSEN_NOZZLE_TOP} visible={false}>
         <mesh geometry={batchedHardware.outerFlameGeo} material={bunsenOuterFlameMat} />
         <mesh geometry={batchedHardware.innerConeGeo} material={bunsenInnerConeMat} />
       </group>
-
-      {/* Reactive Orange Ionization Plume when Inoculation Loop is Heated in the Flame */}
-      <mesh ref={flameReactionRef} geometry={batchedHardware.flameReactionGeo} material={flameReactionMat} visible={false} />
 
       {/* Sterile Agar Margin Cooling Condensation Ring on C_Petri_0 */}
       <mesh ref={coolSteamRef} position={[6.860, -0.214, 1.2902]} material={coolSteamMat} visible={false}>
@@ -597,12 +560,10 @@ export function IsolationSelection({ progressRef }) {
 
       {/* One-Piece Collinear Microbiological Inoculation Loop (Aşılama Özesi) */}
       <group ref={loopToolRef} visible={false}>
-        {/* Warm orange incandescent point light emitted by the hot wire loop tip */}
-        <pointLight ref={loopGlowLightRef} position={[0, 0.008, 0.012]} color="#ff6210" intensity={0} distance={0.42} decay={2} />
         {/* Tilt the entire coaxial Y-aligned tool around its tip (0,0,0) as a single rigid body */}
         <group rotation={[0.92, 0, -0.45]}>
           <mesh geometry={batchedHardware.wireLoopGeo} material={wireLoopMat} />
-          <mesh ref={loopHaloRef} geometry={batchedHardware.loopHaloGeo} material={loopHaloMat} visible={false} />
+          <mesh ref={loopTipHaloRef} geometry={batchedHardware.loopTipHaloGeo} material={loopTipHaloMat} visible={false} />
           <mesh geometry={batchedHardware.brassChuckGeo} material={brassChuckMat} />
           <mesh geometry={batchedHardware.rubberGripGeo} material={gripMat} />
           <mesh geometry={batchedHardware.handleShaftGeo} material={handleMat} />
